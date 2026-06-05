@@ -1,0 +1,293 @@
+==========================================
+ Compilando os algoritmos (C++17, -O3)...
+==========================================
+Compilação finalizada com sucesso!
+
+==========================================
+ Executando Box Counting...
+==========================================
+=================================================================
+  BOX-COUNTING — Liebovitch & Toth (1989)
+  Análise Assintótica para Trabalho de APA
+  Compilado com C++17
+=================================================================
+
+╔══════════════════════════════════════════════════════════════════╗
+║   VALIDAÇÃO — REPLICAÇÃO DA TABELA 1 (Liebovitch & Toth, 1989)  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Fractal                       Dim.Exata dB(N=1k)    Tempo(N=1k)   dB(N=10k)   Tempo(N=10k)  
+--------------------------------------------------------------------------------------------
+Atrator de Hénon             1.260     1.284       11.4           ms1.287       107.940        ms
+Sierpinski Modificado         1.585     1.521       12.2           ms1.563       112.087        ms
+Conjunto de Cantor (1/3)      0.631     0.663       13.6           ms0.652       125.082        ms
+
+  COMPARAÇÃO COM TABELA 1 DO ARTIGO:
+  • Hénon:      artigo reporta 1.27±0.02 (N=10000)
+  • Sierpinski: artigo reporta 1.63±0.04 (N=10000)
+  • Cantor:     artigo reporta 0.639±0.007 (N=10000)
+
+
+╔══════════════════════════════════════════════════════════════╗
+║    BENCHMARK DE COMPLEXIDADE ASSINTÓTICA — BOX COUNTING      ║
+║    k=10 bits, d_e=2 dimensões                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+N       Tempo(ms)   Comparações   N*log2(N)       Razão      d_B       
+--------------------------------------------------------------------------
+500     5.072       49683           4483            11.083      1.303     
+1000    11.653      110002          9966            11.038      1.284     
+2000    23.717      237841          21932           10.845      1.268     
+5000    61.542      665563          61439           10.833      1.265     
+10000   137.814     1426730         132877          10.737      1.287     
+20000   250.183     3054430         285754          10.689      1.274     
+50000   652.225     8376970         780482          10.733      1.266     
+
+  INTERPRETAÇÃO:
+  • Se a coluna 'Razão' (Comparações / N·log₂N) converge para
+    uma constante, confirma-se Θ(N log N) empiricamente.
+  • A constante oculta ≈ k * d_e (escalas × dimensão),
+    pois o sort é executado k vezes com comparações de
+    strings de comprimento proporcional a d_e.
+
+
+╔══════════════════════════════════════════════════════════════╗
+║              ANÁLISE DE COMPLEXIDADE DE ESPAÇO              ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Estruturas de dados alocadas pelo algoritmo:
+
+  ┌─────────────────────────────┬──────────────┬─────────────────────┐
+  │ Estrutura                   │ Tamanho      │ Classe Assintótica  │
+  ├─────────────────────────────┼──────────────┼─────────────────────┤
+  │ X_norm[N][d_e]  (int64)     │ 781     KB      │ O(N · d_e)          │
+  │ Z[N]  (strings)             │ 976     KB      │ O(N · d_e)          │
+  │ log_NB, log_inv_e  (double) │ 1       KB      │ O(k)                │
+  │ Pilha de recursão (sort)    │ 1       KB      │ O(log N)  esperado  │
+  ├─────────────────────────────┼──────────────┼─────────────────────┤
+  │ TOTAL AUXILIAR              │ 1562    KB      │ O(N · d_e) = O(N)   │
+  └─────────────────────────────┴──────────────┴─────────────────────┘
+
+  Nota do artigo (pg. 387): "the memory required is approximately
+  2*N*d_e bytes" — confirmado acima para inteiros de 2 bytes.
+  Com int64 moderno, o fator é 8, mas a classe O(N) se mantém.
+
+
+╔══════════════════════════════════════════════════════════════╗
+║         ANÁLISE DE CASOS — BOX COUNTING                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+  ┌──────────────┬─────────────────────────────────────────────────┐
+  │ Caso         │ Descrição e Complexidade                        │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ MELHOR CASO  │ Todos os N pontos já estão ordenados.           │
+  │ Ω(N log N)   │ std::sort (introsort) ainda executa O(N log N). │
+  │              │ O gargalo não é eliminável — é Ω(N log N).      │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ CASO MÉDIO   │ Distribuição aleatória dos pontos.              │
+  │ Θ(N log N)   │ Quicksort em média: Θ(N log N).                │
+  │              │ Constante oculta: c ≈ k * d_e.                 │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ PIOR CASO    │ Entrada patológica para quicksort puro (ex:     │
+  │ O(N log N)   │ todos Z_n idênticos). std::sort usa introsort,  │
+  │              │ garantindo O(N log N) mesmo no pior caso.       │
+  │              │ DIFERENTE do quicksort puro: O(N²) no pior.     │
+  └──────────────┴─────────────────────────────────────────────────┘
+
+  EXPERIMENTO — Caso de saturação total (NB=1 em todas as escalas):
+  (todos os pontos colocados na origem — caso degenerado)
+
+  N=10000, todos pontos em (0,0): d_B=0.000  Tempo=114.52 ms
+  ┌─ Contagem de Operações Básicas ──────────────────
+  │  Normalizações:          20000       
+  │  Ops de hash (por escala):220000     
+  │  Comparações (sort):     1249897     
+  │  Iterações de contagem:  109989      
+  │  Escalas processadas:    11          
+  │  Tempo total:            0.000       ms
+  └──────────────────────────────────────────────────
+
+╔══════════════════════════════════════════════════════════════╗
+║         EXEMPLO DETALHADO — HÉNON N=5000, k=10, d_e=2       ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Dimensão fractal estimada: d_B = 1.2655
+  (Valor de referência do artigo: ~1.26 para o atrator de Hénon)
+
+  ┌─ Contagem de Operações Básicas ──────────────────
+  │  Normalizações:          10000       
+  │  Ops de hash (por escala):110000     
+  │  Comparações (sort):     665563      
+  │  Iterações de contagem:  54989       
+  │  Escalas processadas:    11          
+  │  Tempo total:            108.976     ms
+  └──────────────────────────────────────────────────
+  Verificação assintótica:
+    N·log₂(N) = 61439
+    Comparações = 665563
+    Razão = 10.833  (≈ k·d_e = 10·2 = 20 esperado)
+
+=================================================================
+  SUMÁRIO DAS CLASSES ASSINTÓTICAS
+=================================================================
+  Tempo  — Melhor caso:  Ω(N log N)
+         — Caso médio:   Θ(N log N)
+         — Pior caso:    O(N log N)   [com introsort]
+  Espaço — Auxiliar:     O(N · d_e) = O(N)  para d_e constante
+  Constante oculta ≈ k · d_e  (número de escalas × dimensão)
+=================================================================
+
+
+==========================================
+ Executando Gliding Box...
+==========================================
+=================================================================
+  GLIDING BOX — 5 Métodos (Kovács & Erdélyi, 2024)
+  Análise Assintótica para Trabalho de APA
+=================================================================
+
+╔══════════════════════════════════════════════════════╗
+║  SEÇÃO 1 — VALIDAÇÃO CRUZADA (N=16, ε=3)            ║
+║  Todos os métodos devem produzir massas idênticas    ║
+╚══════════════════════════════════════════════════════╝
+
+  Validação Sides           : ✓ OK  (erro máx = 0.00e+00)
+  Validação Integral        : ✓ OK  (erro máx = 0.00e+00)
+  Validação Trace           : ✓ OK  (erro máx = 0.00e+00)
+  Validação Convolution     : ✓ OK  (erro máx = 9.48e-16)
+
+  Lacunaridade Λ(ε=3) = 1.3279
+  (Λ > 1 → heterogeneidade; Λ = 1 → distribuição uniforme)
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 2 — DEPENDÊNCIA EM N (ε=8 fixo, densidade=25%)                  ║
+║  Valida: Original=O(N²), Sides=O(N²), Integral=O(N²), Conv=O(N²logN)   ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+N     C(obj)    Orig(ms)    Sides(ms)   Integ(ms)   Trace(ms)   Conv(ms)    Λ(ε=8)  
+--------------------------------------------------------------------------------------
+32    236       0.10        0.07        0.03        0.06        0.35        1.042     
+64    1007      0.51        0.30        0.13        0.22        1.38        1.052     
+128   3995      2.51        1.30        0.51        0.91        6.98        1.048     
+256   16102     10.34       5.23        1.59        3.75        29.52       1.050     
+512   65363     42.71       21.68       7.70        15.12       123.81      1.047     
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 3 — DEPENDÊNCIA EM ε (N=256 fixo, densidade=25%)                ║
+║  Valida: Integral e Conv independem de ε; Original/Sides crescem com ε ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+ε    Orig(ms)    Sides(ms)   Integ(ms)   Trace(ms)   Conv(ms)    Ops_Orig      Ops_Integ     
+----------------------------------------------------------------------------------------------
+2     1.90        2.23        1.71        2.20        31.09       585225        978952        
+4     2.66        4.77        1.44        2.73        26.26       2112297       970824        
+8     10.96       5.02        1.36        3.33        22.19       7998129       954760        
+16    51.53       8.53        1.31        6.75        21.46       29795553      923400        
+32    183.81      13.48       1.59        17.08       20.90       103730625     863752        
+64    569.70      20.91       1.19        41.35       19.10       305181057     756744        
+128   1172.82     29.02       1.34        91.19       25.66       545308929     591880        
+
+  NOTA: Integral e Conv devem mostrar tempo ~constante com ε.
+        Original e Sides devem crescer com ε.
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 4 — DEPENDÊNCIA NA DENSIDADE (N=256, ε=16)                      ║
+║  Valida: apenas Trace depende da textura da imagem (C)                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Densidade C(obj)    Orig(ms)    Integ(ms)   Trace(ms)   Λ        
+------------------------------------------------------------------
+0.05      3245      57.28       1.50        1.95        1.0788    
+0.10      6450      57.22       1.46        3.60        1.0344    
+0.25      16102     57.47       1.51        7.95        1.0130    
+0.50      32634     56.85       1.44        14.99       1.0042    
+0.75      49049     56.87       1.86        21.94       1.0014    
+0.95      62220     56.24       1.42        26.62       1.0002    
+
+  OBSERVAÇÃO: Λ decresce com o aumento da densidade (imagem mais
+  homogênea = menor lacunaridade). Trace fica mais lento com C.
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 5 — VERIFICAÇÃO ASSINTÓTICA EMPÍRICA (N=256, ε=16)               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+  N=256, ε=16, C=16102, (N-ε+1)²=58081
+
+Método       Ops Medidas     Ops Previstas   Razão      Classe Assintótica 
+------------------------------------------------------------------------------
+Original      29795553        14868736        2.004       O(N²·ε²)        
+Sides         3883233         1858592         2.089       O(N²·ε)          
+Integral      923400          232324          3.975       O(N²)              
+Trace         7313344         4122112         1.774       O(C·ε²)          
+
+  Se a Razão ≈ constante, a previsão assintótica está correta.
+  Desvios são devidos a overhead de acesso à memória e cache.
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 6 — CURVA DE LACUNARIDADE Λ(ε) — SIERPINSKI vs ALEATÓRIA        ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+ε    Λ(Sierpinski)    Λ(Aleatória)    
+------------------------------------------
+2     4.7836            1.7717            
+4     3.5393            1.1865            
+8     2.7371            1.0479            
+16    2.1385            1.0113            
+32    1.6459            1.0019            
+64    1.2110            1.0002            
+
+  Sierpinski tem lacunaridade sistematicamente MAIOR que aleatória
+  para mesma escala → mais heterogêneo (mais 'lacunar').
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║          COMPARAÇÃO ASSINTÓTICA: BOX COUNTING vs. GLIDING BOX               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  ┌──────────────────────┬───────────────────────────┬──────────────────────────┐
+  │ Critério             │ Box Counting              │ Gliding Box (Integral)    │
+  │                     │ (Liebovitch & Toth, 1989) │ (Kovács & Erdélyi, 2024)  │
+  ├──────────────────────┼───────────────────────────┼──────────────────────────┤
+  │ PROPÓSITO            │ Dimensão fractal d_B      │ Lacunaridade Λ(ε)         │
+  │ ENTRADA              │ Nuvem de N pontos         │ Imagem N×N pixels         │
+  │ SAÍDA                │ Escalar d_B ∈ [0, d_e]    │ Curva Λ(ε) por escala     │
+  ├──────────────────────┼───────────────────────────┼──────────────────────────┤
+  │ TEMPO (caso médio)   │ Θ(N·log N)                │ Θ(N²)                     │
+  │ TEMPO (pior caso)    │ O(N·log N) [introsort]    │ O(N²·ε²) [Original]       │
+  │ TEMPO (melhor caso)  │ Ω(N·log N)               │ Ω(N²) [Integral]          │
+  ├──────────────────────┼───────────────────────────┼──────────────────────────┤
+  │ ESPAÇO AUXILIAR      │ O(N)                      │ O(N²) [Original/Integral] │
+  │ ESPAÇO (pior caso)   │ O(N)                      │ O(N²·log N) [Convolução]  │
+  ├──────────────────────┼───────────────────────────┼──────────────────────────┤
+  │ OPERAÇÃO BÁSICA      │ Comparação de string      │ Soma/subtração de pixel   │
+  │ GARGALO              │ Ordenação (sort)          │ Soma de caixas            │
+  │ CONSTANTE OCULTA     │ c ≈ k·d_e (escalas×dim)  │ c ≈ ε² (tamanho da caixa) │
+  ├──────────────────────┼───────────────────────────┼──────────────────────────┤
+  │ MELHOR PARA          │ Dados esparsos (pontos)   │ Imagens densas (pixels)   │
+  │ PIOR PARA            │ Dimensão alta (d_e >> 1)  │ Imagens grandes + ε grande│
+  │ PARALELIZAÇÃO        │ Sort paralelo: O(log²N)   │ Trivial: por linha/coluna │
+  └──────────────────────┴───────────────────────────┴──────────────────────────┘
+
+  NOTA FUNDAMENTAL: Os dois métodos NÃO são alternativas diretas.
+  Box Counting mede GEOMETRIA (dimensão fractal = como o conjunto
+  preenche o espaço). Gliding Box mede TEXTURA (lacunaridade =
+  heterogeneidade na distribuição de vazios). São complementares.
+
+=================================================================
+  SUMÁRIO DAS CLASSES ASSINTÓTICAS — GLIDING BOX
+=================================================================
+  ε = tamanho da caixa, N = lado da imagem, C = pixels objeto
+
+  Original:    O(N²·ε²) tempo  |  O(N²) espaço
+  Sides:       O(N²·ε)  tempo  |  O(N²) espaço  [2× melhor que Original]
+  Integral:    O(N²)    tempo  |  O(N²) espaço  [independe de ε!]
+  Trace:       O(C·ε²)  tempo  |  O(N²) espaço  [depende da textura]
+  Convolution: O(N²logN)tempo  |  O(N²logN) esp [independe de ε; suporta qualquer forma]
+
+  RECOMENDAÇÃO GERAL (artigo, pg. 11): Integral para uso geral.
+  PARA COMPARAÇÃO COM BOX COUNTING: Box Counting é mais eficiente
+  em N_pts ≪ N² (dados esparsos); Gliding Box necessário para
+  lacunaridade (informação não obtida por Box Counting).
+=================================================================
+
+
+Testes concluídos!
