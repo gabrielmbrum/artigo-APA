@@ -1,2 +1,4 @@
 src/.venv
 src/*exec
+tex/main copy*
+.vscode/

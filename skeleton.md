@@ -18,8 +18,9 @@ passos da escrita do artigo:
 1. introduction
     a. concept of fractals
     b. utility of fractals
-    c. algorithm comparasion/analysis
-    d. overview of relevance of the two methods
+    c. algorithm comparasion/analysis relevance
+    d. relevance of the two methods
+    e. objectives
 2. overview of multifractals
     a. multifractal analysis
     b. box counting

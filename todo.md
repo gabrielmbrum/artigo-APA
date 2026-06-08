@@ -2,6 +2,7 @@
 1. introduction
     a. concept of fractals
     b. utility of fractals
+    e. objectives
 ler "comparison of gliding box and box-counting methods in river network analysis"
 
 [ ] 09-06 (terça)
