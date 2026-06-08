@@ -72,73 +72,17 @@ Nome1\textsuperscript{1*}, Nome2\textsuperscript{2}, Nome3\textsuperscript{3}
 \vspace{1em}
 ]
 
-\section{Introdução}
+\input{introduction.tex}
 
-Visão geral do projeto, objetivos, etc.
+\input{theorical-foundation.tex}
 
-\section{Materiais e Métodos}
+\input{alg-proj-analysis.tex}
 
+\input{methodology.tex}
 
+\input{results-discussion.tex}
 
-\subsection{Subseção 1 - caso necessário}
-
-% formato de lista em bullet-points
-\begin{itemize}
-\item \textbf{Item1} Descrição.
-\item \textbf{Item2} Descrição.
-\end{itemize}
-
-% formato de figuras 
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=0.85\columnwidth]{arquivo}
-% \caption{Legenda da imagem}
-% \label{fig:label_da_imagem}
-% \end{figure}
-
-
-\begin{equation}
-\text{C}(i) = i + 3 - \frac{1}{3} \sum_{k}^{10} 2k
-\end{equation}
-
-%Lista enumerada
-\begin{enumerate}
-    \item Item1;
-    \item Item2;
-    \item Item3;
-\end{enumerate}
-
-\section{Resultados}
-
-Resultados da pesquisa
-
-% Exemplo de tabela
-\begin{table}[htbp]
-\centering
-\small
-\caption{Legenda}
-\label{tab:label_da_table}
-\begin{tabular}{@{}lccc@{}} %formato da tabela
-\toprule
-\textbf{col1} & \textbf{bol2} & \textbf{bol3} & \textbf{col4} \\
-\midrule 
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-\midrule
-\textbf{resultado1} & \textbf{resultado1} & \textbf{resultado1} & \textbf{resultado1} \\
-\bottomrule
-\end{tabular}
-\par\vspace{1mm}
-{\footnotesize nota de rodapé}
-\end{table}
-
-
-\section{Conclusão}
-
-Retomada da proposta, resultados e possíveis melhorias/trabalhos futuros.
+\input{conclusion.tex}
 
 % a bibliografia deve estar no arquivo references.bib em formato bibtex
 \bibliography{references}
