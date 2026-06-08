@@ -1,4 +1,5 @@
 src/.venv
 src/*exec
-tex/main copy*
+tex/backup/*
 .vscode/
+todo.md

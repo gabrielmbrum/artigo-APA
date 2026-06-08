@@ -16,24 +16,34 @@ passos da escrita do artigo:
 ## paper struct
 
 1. introduction
-    a. concept of fractals
-    b. utility of fractals
-    c. algorithm comparasion/analysis relevance
-    d. relevance of the two methods
+    a. history of fractals (origin, simple concept definition, study areas that begin it)
+    b. utility of fractals (begin of 00s, then 2010s and now)
+    c. algorithm comparasion/analysis relevance (simrank, comparisons)
+    d. relevance of the methods that will be studied (BC, GC, DFC, BM)
     e. objectives
-2. overview of multifractals
-    a. multifractal analysis
+
+2. theorical foundation
+    a. fractal analysis
     b. box counting
-        1. alg-one
-        2. alg-two
-        3. alg-three
     c. gliding box
-        1. alg-one
-        2. alg-two
-        3. alg-three
-3. methodology
+    d. dfc (naive and optimized)
+    e. bm (naive and optimized)
+
+3. algorithm project and analysis
+    a. pseudocodigo e analise assintotica BC
+    b. pseudocodigo e analise assintotica GC
+    c. pseudocodigo e analise assintotica DFC
+    d. pseudocodigo e analise assintotica BM
+
+4. methodology
     a. materials (dataset)
     b. how tests are done? (runs, enviroment...)
-    c. metrics calculated
-4. algorithms analysis
+    c. metrics (time, memory, effectiveness - o algoritmo mais efetivo será aquele que gerar a maior diferença estatística entre as duas classes, ex.: positivo tem D = 1.4 e negativo tem D = 1.9)
+
 5. results and discussions
+    a. pre-processing (show the time spent by box couting and gliding box on binarization pre-process)
+    b. graphics comparing the teorical/real time
+    c. tradeoffs (tempo, ram, effectiveness)
+
+6. conclusion
+    

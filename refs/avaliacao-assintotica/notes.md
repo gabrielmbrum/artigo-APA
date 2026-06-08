@@ -50,3 +50,24 @@ vamos se basear nesse trabalho
 **objetivos**
 os objetivos desse artigo eh ver o efeito da escolha dos tamanhos de caixa no BC e o efeito do metodo da subdivisao no calculo da dimensao no BC e GB
 
+## *Comparison of gliding box and box-counting methods in soil image analysis*
+
+*exact value of the generalized dim*
+- varios autores defendem que o exato valor nao pode ser calculado
+- vicsek propos metodos praticos para computar essa dim gen, mostrando que alguns metodos padroes para determinar dim fractal precisavam de cautela no uso
+- principal dificuldade eh que o limite ideal nao consegue ser atingido
+
+**objetivo**
+examinar o efeito da alteracao do tamanho da caixa e o metodo dea subdivisoa aplicada no calculo de dimensoes fractais generalizadas
+
+*gliding box method*
+- inicialmente usado para analise de lacunaridade
+- adapatado por Cheng para MFA
+
+## *Association of Fractal Geometry and Data Augmentation Through GANs and XAI for Classification of Histology Images*
+
+utiliza de metodos fractais para extrair características complexas e utiliza-las na classificaco de imagens histopatologicas
+
+utiliza a tecnica de extracao fractal baseada na geometria fractal de Roberto 2021
+
+a abordagem multiescalar e multidimensional (proposta por Ivanovici e Richdard, 2010) eh utilizada, a multiescalar consiste na aplicacao do gliding-box para avaliar todas as regioes sda imagem em diferentes escalas, já a multidimensional consiste em avaliar a similiraidade de niveis de pixels dentro de uma reggiao LxL, considerando intensidade RGB e a distancia entre cada pixel e o pixel central da regiao
