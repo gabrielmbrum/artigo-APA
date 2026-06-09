@@ -1,3 +1,112 @@
+% ============================================================
+%  SECTION 1 — INTRODUCTION
+% ============================================================
 \section{Introduction}
 
-Visão geral do projeto, objetivos, etc.
+Fractal geometry, formalised by Benoit~B. Mandelbrot in his
+landmark monograph \textit{The Fractal Geometry of
+Nature}~\cite{Mandelbrot1982}, provided a mathematical
+framework for describing the roughness, branching, and
+statistical self-similarity pervasive in natural phenomena that
+classical Euclidean geometry fails to capture. The central
+quantitative descriptor of this framework is the fractal
+dimension~$D$, estimated in practice as the negative slope of a
+linear regression over a log-log plot of a covering measure
+against the measurement scale~$\varepsilon$. Shortly after
+Mandelbrot's unification, Pentland~\cite{Pentland1984}
+demonstrated that fractal dimension could be computed directly
+from digital imagery to discriminate surface textures in natural
+scenes — a result that bridged fractal geometry and image
+analysis, and opened the way for its systematic application to
+medical imaging tasks.
+
+The adoption of fractal analysis in medical imaging occurs 
+since the 1990s, alongside the proliferation of
+high-resolution digital modalities — multi-detector computed
+tomography, 3\,T magnetic resonance imaging, and digital
+mammography. Applications spanning pulmonary
+emphysema~\cite{Mishima1999}, retinal vascular
+morphology~\cite{Jelinek2000}, brain cortical
+folding~\cite{Free1996}, and tumour margin
+irregularity~\cite{Rangayyan2007} demonstrated that~$D$ encodes
+structural properties that classical first-order statistical
+descriptors — variance, entropy, autocorrelation — could not
+adequately capture. From the 2010s onward, fractal descriptors
+were incorporated into hybrid feature engineering pipelines
+alongside learned representations~\cite{Lopes2011,King2009},
+and more recently, fractal dimension has been explored as a
+a feature describer to enhance the interpretability of deep 
+learning models~\cite{roberto2021fractal} and as a data
+augmentation strategy with GANs~\cite{borgue2025association}.
+Contemporary clinical datasets — commonly comprising
+images at resolutions exceeding $1024\times1024$
+pixels — elevated the algorithmic efficiency of dimension
+estimation from a secondary concern to a primary design
+constraint. The central question shifted from whether
+fractal dimension is discriminative to at what
+computational cost it can be reliably extracted, and
+which algorithm offers the optimal balance of
+precision, robustness, and efficiency under realistic operating
+conditions.
+
+Addressing this question requires a rigorous algorithmic
+engineering perspective. The four methods selected for analysis
+span the principal design axes of the problem: binary versus
+grayscale input, and non-overlapping versus dense-overlap
+covering strategies. The \textit{Classical
+Box-Counting}~(BC)~\cite{Mandelbrot1982} partitions the binary
+image into a grid of non-overlapping boxes of decreasing side
+and counts how many contain foreground pixels, yielding a
+coarse but efficient estimate of~$D$. The \textit{Gliding
+Box}~(GB)~\cite{Allain1991} extends this idea by sliding a
+window across every pixel position, producing a richer
+mass-frequency distribution at the cost of processing a far
+larger number of box placements. The \textit{Differential
+Box-Counting}~(DBC)~\cite{Sarkar1994} lifts the problem to
+grayscale images by treating the intensity surface as a
+three-dimensional relief and counting the column of boxes
+required to span the local intensity range within each cell,
+thereby retaining gradient information that binary methods
+discard. The \textit{Blanket Method}~(BM)~\cite{Peleg1984}
+estimates the fractal dimension of the intensity surface by
+measuring how its apparent area grows as a morphological cover
+is progressively inflated and deflated around it at each scale.
+Contrasting these four methods also surfaces a fundamental
+trade-off inherent to the pre-processing stage: binarisation
+lowers the representational cost of the input, but discards
+intensity gradients that carry clinically significant
+discriminatory information — a loss that the grayscale methods
+avoid at the price of higher computational demand.
+
+This work addresses the following research objectives:
+
+\begin{itemize}
+  \item \textbf{Algorithmic analysis:} for each of the four
+    methods, in both naive and structurally optimised
+    formulations, derive formal asymptotic bounds for time and
+    auxiliary space complexity and validate them against
+    empirical measurements on the UCSB medical image dataset,
+    contrasting theoretical scaling predictions with observed
+    wall-clock behaviour.
+  \item \textbf{Pre-processing and implementation cost:}
+    quantify the overhead imposed by mandatory pre-processing
+    stages and characterise the data-structure choices that drive the
+    efficiency gap between naive and optimised implementations.
+  \item \textbf{Effectiveness and trade-off synthesis:} assess
+    the discriminatory power of each algorithm by measuring the
+    statistical separation it induces between pathological and
+    healthy tissue classes in terms of the estimated fractal
+    dimension, and synthesise all time, memory, and
+    effectiveness evidence into a structured trade-off
+    comparison across the binary-versus-grayscale and
+    naive-versus-optimised design axes.
+\end{itemize}
+
+The remainder of this article is structured as follows:
+Section~2 establishes the mathematical foundations of fractal
+analysis and formally defines each algorithm; Section~3 presents
+pseudocode and derives asymptotic complexity bounds; Section~4
+describes the experimental methodology, dataset, and evaluation
+metrics; Section~5 reports and discusses empirical results;
+Section~6 concludes with recommendations and directions for
+future work.

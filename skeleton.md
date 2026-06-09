@@ -36,7 +36,7 @@ passos da escrita do artigo:
     d. pseudocodigo e analise assintotica BM
 
 4. methodology
-    a. materials (dataset)
+    a. materials (medical image dataset UCSB)
     b. how tests are done? (runs, enviroment...)
     c. metrics (time, memory, effectiveness - o algoritmo mais efetivo será aquele que gerar a maior diferença estatística entre as duas classes, ex.: positivo tem D = 1.4 e negativo tem D = 1.9)
 

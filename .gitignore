@@ -3,3 +3,6 @@ src/*exec
 tex/backup/*
 .vscode/
 todo.md
+prompt.md
+tex/compile.sh
+tex/notes.md
