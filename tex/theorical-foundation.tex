@@ -1,27 +1,272 @@
-\section{Theorical Foundation}
+% ============================================================
+%  SECTION 2 — THEORETICAL FOUNDATION
+% ============================================================
+\section{Theoretical Foundation}
+\label{sec:theory}
 
-% formato de lista em bullet-points
-\begin{itemize}
-\item \textbf{Item1} Descrição.
-\item \textbf{Item2} Descrição.
-\end{itemize}
+% ------------------------------------------------------------
+\subsection{Fractal Analysis and Dimension Estimation}
+\label{sec:theory:fractal}
 
-% formato de figuras 
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=0.85\columnwidth]{arquivo}
-% \caption{Legenda da imagem}
-% \label{fig:label_da_imagem}
-% \end{figure}
-
+Fractal geometry provides a mathematical framework for
+characterising structures whose complexity persists across
+observation scales, a property termed \textit{statistical
+self-similarity}~\cite{Mandelbrot1982}. Fractal sets exhibit
+power-law scaling: a characteristic measure $M(\varepsilon)$
+obtained at scale $\varepsilon$ satisfies
 
 \begin{equation}
-\text{C}(i) = i + 3 - \frac{1}{3} \sum_{k}^{10} 2k
+  M(\varepsilon) \;\sim\; C \cdot \varepsilon^{-D},
+  \label{eq:powerlaw}
 \end{equation}
 
-%Lista enumerada
-\begin{enumerate}
-    \item Item1;
-    \item Item2;
-    \item Item3;
-\end{enumerate}
+\noindent where $C$ is a proportionality constant and $D$ is the
+fractal dimension~\cite{Falconer2003}. Taking logarithms of both
+sides yields the linear relationship
+
+\begin{equation}
+  \log M(\varepsilon) = \log C - D \log \varepsilon,
+  \label{eq:loglog}
+\end{equation}
+
+\noindent from which $D$ is recovered as the negative slope of a
+least-squares regression over the log-scale pairs
+$\{(\log \varepsilon_i, \log M(\varepsilon_i))\}_{i=1}^{m}$,
+computed across $m$ discrete scales.
+
+Because the Hausdorff dimension~\cite{Hausdorff1919} requires an
+infimum over all possible coverings, it is not directly computable
+on discrete pixel grids. The Minkowski--Bouligand (box-counting)
+dimension $D_B$ provides a tractable approximation~\cite{Falconer2003}:
+
+\begin{equation}
+  D_B = \lim_{\varepsilon \to 0}
+        \frac{\log N(\varepsilon)}{\log(1/\varepsilon)},
+  \label{eq:boxdim}
+\end{equation}
+
+\noindent where $N(\varepsilon)$ is the minimum number of boxes of
+side $\varepsilon$ needed to cover the set. In practice,
+Eq.~\eqref{eq:boxdim} is approximated by the finite regression of
+Eq.~\eqref{eq:loglog} over a scale set
+$\mathcal{S} = \{\varepsilon_1 > \varepsilon_2 > \cdots > \varepsilon_m\}$.
+The quality of the estimate is assessed through the coefficient of
+determination $R^{2}$ of the regression: values close to unity
+confirm consistent power-law scaling and are a necessary condition
+for interpreting $D_B$ as a meaningful fractal
+descriptor~\cite{Lopes2011}.
+
+% ------------------------------------------------------------
+\subsection{Classical Box-Counting Method}
+\label{sec:theory:bc}
+
+The Classical Box-Counting~(BC) method is the direct
+discretisation of Eq.~\eqref{eq:boxdim} for binary
+images~\cite{Mandelbrot1982,Liebovitch1989}. Let $I$ be a binary
+image of $N = W \times H$ pixels. For a given box side
+$\varepsilon$, the image is partitioned into
+$\lceil W/\varepsilon \rceil \times \lceil H/\varepsilon \rceil$
+non-overlapping cells; a cell is \textit{occupied} if it contains
+at least one foreground pixel:
+
+\begin{equation}
+  N(\varepsilon)
+    = \sum_{i=0}^{\lceil W/\varepsilon \rceil - 1}
+      \sum_{j=0}^{\lceil H/\varepsilon \rceil - 1}
+      \mathbf{1}\!\left[
+        \exists\,(x,y) \in B_{ij}(\varepsilon) : I(x,y) = 1
+      \right].
+  \label{eq:bc_count}
+\end{equation}
+
+Because BC operates on binary images, a prior binarisation step is
+required when the input is a grayscale medical image. The standard
+strategy is Otsu's global thresholding~\cite{Otsu1979}, which
+selects the threshold $t^{*}$ that minimises intra-class intensity
+variance. This step introduces an inherent trade-off: binarisation
+lowers the computational cost of the subsequent coverage test, but
+irreversibly discards intensity gradient information, making the
+estimated $D_B$ sensitive to the choice of $t^{*}$.
+
+To avoid scanning all $\varepsilon^{2}$ pixels per cell, the
+optimised formulation pre-computes the \textit{integral image}
+$P[x][y] = \sum_{i \leq x, j \leq y} I[i][j]$ using the
+recurrence~\cite{Crow1984}
+
+\begin{equation}
+  P[x][y]
+    = I[x][y] + P[x{-}1][y] + P[x][y{-}1] - P[x{-}1][y{-}1].
+  \label{eq:prefix}
+\end{equation}
+
+\noindent Given $P$, the foreground pixel count within any
+rectangular cell is retrieved in $\mathcal{O}(1)$ as
+
+\begin{equation}
+  \sigma(x_1,y_1,x_2,y_2) =
+    \begin{aligned}[t]
+      &P[x_2][y_2] - P[x_1{-}1][y_2] \\
+      &- P[x_2][y_1{-}1] + P[x_1{-}1][y_1{-}1],
+    \end{aligned}
+  \label{eq:rect_sum}
+\end{equation}
+
+\noindent with occupancy established by $\sigma > 0$. The integral
+image is built once in $\Theta(N)$ time and space, and shared
+across all scales in $\mathcal{S}$.
+
+% ------------------------------------------------------------
+\subsection{Gliding Box Method}
+\label{sec:theory:gb}
+
+The Gliding Box~(GB) method~\cite{Allain1991} replaces the
+non-overlapping partition of BC with a \textit{dense sliding
+window}: a box of side $L$ is placed at every valid pixel
+position $(x, y)$, and the \textit{box mass}
+
+\begin{equation}
+  m_{x,y}(L) = \sum_{i=0}^{L-1} \sum_{j=0}^{L-1} I[x+i][y+j]
+  \label{eq:gb_mass}
+\end{equation}
+
+\noindent is recorded for each of the $T(L) = (W-L+1)(H-L+1)$
+valid placements. The resulting \textit{mass-frequency
+distribution} $n(m, L)$ counts how many placements yield mass $m$,
+giving the normalised probability $P(m, L) = n(m, L) / T(L)$.
+
+The fractal dimension is estimated from the mean box mass
+
+\begin{equation}
+  \mu(L) = \sum_{m=0}^{L^{2}} m \, P(m, L),
+  \label{eq:gb_mu1}
+\end{equation}
+
+\noindent by substituting $\mu(L)$ for $M(\varepsilon)$ in
+Eq.~\eqref{eq:loglog} and fitting the slope over
+$\mathcal{S}$~\cite{Plotnick1996}. A complementary descriptor,
+\textit{lacunarity}, is obtained from the first two moments of the
+distribution:
+
+\begin{equation}
+  \Lambda(L)
+    = \frac{\mu^{(2)}(L) - [\mu(L)]^{2}}{[\mu(L)]^{2}},
+  \label{eq:lacunarity}
+\end{equation}
+
+\noindent where $\mu^{(2)}(L) = \sum_{m} m^{2} P(m, L)$.
+Lacunarity quantifies translational heterogeneity: a homogeneous
+set yields $\Lambda \approx 0$, while a clustered or gapped
+structure yields large $\Lambda$~\cite{Allain1991,Tolle2008}. The
+joint use of $D_B$ and $\Lambda$ has been shown to improve tissue
+discriminability in histological image
+classification~\cite{Roberto2021,Borgue2025}, since two textures
+may share a similar $D_B$ yet differ in their spatial mass
+distribution.
+
+The same integral-image structure of Eq.~\eqref{eq:prefix}
+applies to GB: pre-computing $P$ reduces each mass evaluation from
+$\Theta(L^{2})$ to $\mathcal{O}(1)$ via Eq.~\eqref{eq:rect_sum},
+bringing the per-scale cost from $\Theta(NL^{2})$ to
+$\Theta(N)$~\cite{Crow1984}. This optimisation is more impactful
+for GB than for BC because GB evaluates $\Theta(N)$ overlapping
+positions per scale rather than $\Theta(N/L^{2})$ disjoint cells,
+making the naive cost grow as $L^{2}$ while the optimised cost
+remains constant.
+
+% ------------------------------------------------------------
+\subsection{Differential Box-Counting Method}
+\label{sec:theory:dbc}
+
+The Differential Box-Counting~(DBC) method, proposed by Sarkar
+and Chaudhuri~\cite{Sarkar1994}, extends BC to grayscale images
+by treating the intensity surface as a three-dimensional relief.
+Let $I$ be a grayscale image of $N = W \times H$ pixels with
+intensities in $\{0, \ldots, G{-}1\}$. For a given scale
+$\varepsilon$, the image plane is partitioned into
+$\lceil W/\varepsilon \rceil \times \lceil H/\varepsilon \rceil$
+non-overlapping cells as in BC, but each cell is now extended
+vertically: the intensity axis is divided into bands of height
+$\delta = \lceil G / \lceil W/\varepsilon \rceil \rceil$, and the
+number of boxes required to cover the local intensity range within
+cell $(i, j)$ is
+
+\begin{equation}
+  n_{ij}(\varepsilon)
+    = \left\lceil \frac{I_{\max}^{ij} - I_{\min}^{ij}}{\delta}
+      \right\rceil + 1,
+  \label{eq:dbc_count}
+\end{equation}
+
+\noindent where $I_{\max}^{ij}$ and $I_{\min}^{ij}$ are the
+maximum and minimum intensities within the cell. The total count
+$N(\varepsilon) = \sum_{i,j} n_{ij}(\varepsilon)$ is substituted
+into Eq.~\eqref{eq:loglog} to estimate $D_B$ via regression over
+$\mathcal{S}$.
+
+By retaining gradient information through the intensity range
+$I_{\max}^{ij} - I_{\min}^{ij}$, DBC avoids the threshold
+sensitivity inherent to BC, at the cost of processing a richer
+input representation. The naive formulation scans all
+$\varepsilon^{2}$ pixels per cell to compute the local extrema,
+yielding a per-scale cost of $\Theta(N)$ with a constant
+proportional to $\varepsilon^{2}$. The optimised formulation
+replaces this scan with two separate \textit{2D range-minimum and
+range-maximum structures} built in $\Theta(N \log N)$ time and
+$\Theta(N \log N)$ space via sparse tables, after which each
+$(I_{\max}^{ij},\, I_{\min}^{ij})$ query is answered in
+$\mathcal{O}(1)$, reducing the per-scale traversal to
+$\Theta(N/\varepsilon^{2})$ with a unit constant — the same
+asymptotic profile as the optimised BC applied to a grayscale
+input.
+
+% ------------------------------------------------------------
+\subsection{Blanket Method}
+\label{sec:theory:bm}
+
+The Blanket Method~(BM), introduced by Peleg et
+al.~\cite{Peleg1984}, estimates the fractal dimension of the
+intensity surface by measuring how its apparent area grows as a
+morphological cover is progressively expanded around it at each
+scale. Let $u_\varepsilon(x, y)$ and $b_\varepsilon(x, y)$ denote
+the upper and lower \textit{blankets} at dilation level
+$\varepsilon$, defined by the recurrences
+
+\begin{align}
+  u_\varepsilon(x,y) &= \max\!\Bigl(u_{\varepsilon-1}(x,y)+1,\;
+    \max_{(s,t)\in\mathcal{N}} u_{\varepsilon-1}(s,t)\Bigr),
+  \label{eq:blanket_u} \\
+  b_\varepsilon(x,y) &= \min\!\Bigl(b_{\varepsilon-1}(x,y)-1,\;
+    \min_{(s,t)\in\mathcal{N}} b_{\varepsilon-1}(s,t)\Bigr),
+  \label{eq:blanket_b}
+\end{align}
+
+\noindent with $u_0 = b_0 = I$ and $\mathcal{N}$ denoting the
+4-connected neighbourhood of $(x, y)$. The \textit{blanket
+volume} at scale $\varepsilon$ is
+
+\begin{equation}
+  V(\varepsilon)
+    = \sum_{x,y} \bigl[u_\varepsilon(x,y) - b_\varepsilon(x,y)\bigr],
+  \label{eq:blanket_vol}
+\end{equation}
+
+\noindent and the scale-dependent area measure is obtained as
+$A(\varepsilon) = \bigl[V(\varepsilon) - V(\varepsilon{-}1)\bigr]
+/ 2$. Substituting $A(\varepsilon)$ for $M(\varepsilon)$ in
+Eq.~\eqref{eq:loglog} and fitting the slope over $\mathcal{S}$
+yields the fractal dimension estimate.
+
+The naive formulation evaluates each recurrence step by scanning
+the $K$-neighbourhood of every pixel, incurring $\Theta(N K^{2})$
+per dilation level and $\Theta(N K^{2} \varepsilon_{\max})$ in
+total. The optimised formulation decomposes the 2D neighbourhood
+maximum and minimum into two successive 1D sliding-window
+operations — one horizontal, one vertical — each solved in
+$\Theta(N)$ using a \textit{monotonic deque} (double-ended queue)
+per row or column~\cite{Lemire2006}. This separability reduces
+the per-level cost to $\Theta(N)$ regardless of neighbourhood
+size, and the total cost to $\Theta(N \varepsilon_{\max})$.
+Because BM operates directly on the intensity surface without
+binarisation, it retains the full gradient information of the
+image, making it the most information-preserving of the four
+methods at the price of higher computational demand.
