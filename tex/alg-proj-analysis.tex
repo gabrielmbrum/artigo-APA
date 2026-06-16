@@ -421,17 +421,508 @@ Optimised & $\Theta(mN)$ & $\Theta(N)$ \\
 \centering
 \caption{BC vs.\ GB optimised formulations (per scale).}
 \label{tab:bc_gb_comparison}
+% Força a tabela a ter exatamente a largura de uma coluna (\columnwidth)
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{lccc}
 \hline
-\textbf{Method} & \textbf{Positions/scale} &
-\textbf{Cost/position} & \textbf{Per-scale cost} \\
+\textbf{Method} & \textbf{Positions/scale} & \textbf{Cost/position} & \textbf{Per-scale cost} \\
 \hline
-BC (opt.) & $\Theta(N/\varepsilon^{2})$ &
-            $\mathcal{O}(1)$ &
-            $\Theta(N/\varepsilon^{2})$ \\
-GB (opt.) & $\Theta(N)$ &
-            $\mathcal{O}(1)$ &
-            $\Theta(N)$ \\
+BC (opt.) & $\Theta(N/\varepsilon^{2})$ & $\mathcal{O}(1)$ & $\Theta(N/\varepsilon^{2})$ \\
+GB (opt.) & $\Theta(N)$ & $\mathcal{O}(1)$ & $\Theta(N)$ \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+% ------------------------------------------------------------
+\subsection{Differential Box-Counting (DBC)}
+\label{subsec:dbc}
+% ------------------------------------------------------------
+
+\subsubsection{Naive Formulation}
+
+The Differential Box-Counting method, proposed by Sarkar and
+Chaudhuri~\cite{Sarkar1994}, extends the BC framework to
+grayscale images by treating the intensity function
+$z = I(x,y)$ as a three-dimensional surface and counting the
+number of boxes in the extended $(x,y,z)$ space required to
+cover the local intensity relief within each spatial cell.
+Let $I$ be a grayscale image of $N = W \times H$ pixels with
+intensities in $\{0,\ldots,G-1\}$. For a given scale
+$\varepsilon$, the image plane is partitioned into $\lceil
+W/\varepsilon \rceil \times \lceil H/\varepsilon \rceil$
+non-overlapping cells as in BC; the intensity axis is
+simultaneously divided into bands of uniform height
+
+\begin{equation}
+  \delta(\varepsilon)
+    = \left\lceil \frac{G}{\lceil W/\varepsilon \rceil}
+      \right\rceil,
+  \label{eq:dbc_delta}
+\end{equation}
+
+\noindent so that the number of intensity bands scales
+proportionally with the spatial resolution. Within each cell
+$(i,j)$, the number of boxes required to cover the intensity
+range is
+
+\begin{equation}
+  n_{ij}(\varepsilon)
+    = \left\lceil
+        \frac{I^{ij}_{\max} - I^{ij}_{\min}}{\delta(\varepsilon)}
+      \right\rceil + 1,
+  \label{eq:dbc_nij}
+\end{equation}
+
+\noindent where $I^{ij}_{\max}$ and $I^{ij}_{\min}$ are the
+maximum and minimum pixel intensities within cell $(i,j)$.
+The total count $N(\varepsilon) = \sum_{i,j} n_{ij}(\varepsilon)$
+is then substituted into the log-log regression of
+Eq.~\eqref{eq:loglog} to estimate $D_B$~\cite{Sarkar1994,
+Falconer2003}. By retaining the intensity gradient
+$I^{ij}_{\max} - I^{ij}_{\min}$ as the primary signal, DBC
+avoids the threshold sensitivity inherent to BC while
+operating directly on the grayscale
+representation~\cite{Liu2014}. Algorithm~\ref{alg:dbc_naive}
+details the naive procedure.
+
+\begin{algorithm}[t]
+\caption{Naive Differential Box-Counting}
+\label{alg:dbc_naive}
+\begin{algorithmic}[1]
+\Require Grayscale image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         intensity range $G$, scale set $\mathcal{S}$
+\Ensure  Pairs $\{(\varepsilon,\, N(\varepsilon)) :
+         \varepsilon \in \mathcal{S}\}$
+\For{each $\varepsilon \in \mathcal{S}$}
+  \State $\delta \leftarrow \lceil G \;/\;
+         \lceil W/\varepsilon \rceil \rceil$
+  \State $\mathit{total} \leftarrow 0$
+  \For{$b_x \leftarrow 0$ \textbf{to}
+       $\lceil W/\varepsilon \rceil - 1$}
+    \For{$b_y \leftarrow 0$ \textbf{to}
+         $\lceil H/\varepsilon \rceil - 1$}
+      \State $I_{\max} \leftarrow -\infty$;\;
+             $I_{\min} \leftarrow +\infty$
+      \For{$dx \leftarrow 0$ \textbf{to}
+           $\varepsilon - 1$}
+        \For{$dy \leftarrow 0$ \textbf{to}
+             $\varepsilon - 1$}
+          \State $px \leftarrow b_x{\cdot}\varepsilon{+}dx$;\;
+                 $py \leftarrow b_y{\cdot}\varepsilon{+}dy$
+          \If{$px < W \;\wedge\; py < H$}
+            \State $I_{\max} \leftarrow
+                   \max(I_{\max},\, I[px][py])$
+            \State $I_{\min} \leftarrow
+                   \min(I_{\min},\, I[px][py])$
+          \EndIf
+        \EndFor
+      \EndFor
+      \State $\mathit{total} \leftarrow \mathit{total}
+             + \lceil (I_{\max}{-}I_{\min})/\delta \rceil
+             + 1$
+    \EndFor
+  \EndFor
+  \State \textbf{yield} $(\varepsilon,\, \mathit{total})$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log \varepsilon_i,\, \log N(\varepsilon_i))\}$
+\end{algorithmic}
+\end{algorithm}
+
+The structure of the naive DBC is isomorphic to that of naive
+BC: for each scale $\varepsilon$, the $\Theta(N/\varepsilon^2)$
+cells are each traversed by an inner $\varepsilon \times
+\varepsilon$ loop that now computes both a running maximum and
+a running minimum rather than a single occupancy flag. Each
+inner loop iteration performs $\mathcal{O}(1)$ work, so the
+per-scale cost is
+
+\begin{equation}
+  T_{\text{DBC,naive}}(\varepsilon)
+    = \Theta\!\left(\frac{N}{\varepsilon^{2}}\right)
+      \cdot \Theta(\varepsilon^{2})
+    = \Theta(N),
+  \label{eq:dbc_naive_scale}
+\end{equation}
+
+\noindent and the total cost over $m$ scales is
+
+\begin{equation}
+  T_{\text{DBC,naive}}(N, m)
+    = \sum_{\varepsilon \in \mathcal{S}} \Theta(N)
+    = \Theta(mN).
+  \label{eq:dbc_naive_total}
+\end{equation}
+
+Although the asymptotic bound matches that of naive BC, DBC
+carries a larger constant factor per cell visit, since two
+comparisons are performed per pixel instead of one, and no
+early-exit is possible — the entire cell must be scanned to
+determine $I^{ij}_{\max}$ and $I^{ij}_{\min}$. Auxiliary
+space is $\Theta(1)$ beyond the read-only input buffer,
+identical to the naive BC case.
+
+% ............................................................
+\subsubsection{Optimised Formulation}
+
+The computational bottleneck of the naive DBC is the
+$\Theta(\varepsilon^2)$ inner scan required to compute the
+local range $(I^{ij}_{\max},\, I^{ij}_{\min})$ at every cell
+and every scale. This bottleneck is eliminated by
+pre-computing two 2D range structures — one for maxima and
+one for minima — that answer arbitrary rectangular range
+queries in $\mathcal{O}(1)$ after an offline preprocessing
+phase. The standard construction uses
+\textit{sparse tables}~\cite{Liu2014}: for each row, a
+1D sparse table is built in $\mathcal{O}(W \log W)$ time;
+a second-level sparse table over the row results is then
+built in $\mathcal{O}(H \log H)$ time, yielding a total
+preprocessing cost of $\Theta(N \log N)$ time and $\Theta(N
+\log N)$ auxiliary space. Once built, any $(I^{ij}_{\max},\,
+I^{ij}_{\min})$ query over a cell of arbitrary side is
+answered in $\mathcal{O}(1)$.
+Algorithm~\ref{alg:dbc_opt} presents the optimised procedure.
+
+\begin{algorithm}[t]
+\caption{Optimised Differential Box-Counting (Sparse Tables)}
+\label{alg:dbc_opt}
+\begin{algorithmic}[1]
+\Require Grayscale image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         intensity range $G$, scale set $\mathcal{S}$
+\Ensure  Pairs $\{(\varepsilon,\, N(\varepsilon)) :
+         \varepsilon \in \mathcal{S}\}$
+\State Build 2D sparse table $\mathcal{T}_{\max}$ for range
+       maximum \hfill
+       \Comment{$\Theta(N \log N)$ time and space
+       \cite{Liu2014}}
+\State Build 2D sparse table $\mathcal{T}_{\min}$ for range
+       minimum \hfill
+       \Comment{$\Theta(N \log N)$ time and space}
+\For{each $\varepsilon \in \mathcal{S}$}
+  \State $\delta \leftarrow \lceil G \;/\;
+         \lceil W/\varepsilon \rceil \rceil$
+  \State $\mathit{total} \leftarrow 0$
+  \For{$b_x \leftarrow 0$ \textbf{to}
+       $\lceil W/\varepsilon \rceil - 1$}
+    \For{$b_y \leftarrow 0$ \textbf{to}
+         $\lceil H/\varepsilon \rceil - 1$}
+      \State $x_1 \leftarrow b_x{\cdot}\varepsilon$;\;
+             $y_1 \leftarrow b_y{\cdot}\varepsilon$
+      \State $x_2 \leftarrow
+             \min(x_1{+}\varepsilon{-}1,\,W{-}1)$;\;
+             $y_2 \leftarrow
+             \min(y_1{+}\varepsilon{-}1,\,H{-}1)$
+      \State $I_{\max} \leftarrow
+             \mathcal{T}_{\max}.\textsc{Query}(x_1, y_1,
+             x_2, y_2)$
+             \hfill\Comment{$\mathcal{O}(1)$}
+      \State $I_{\min} \leftarrow
+             \mathcal{T}_{\min}.\textsc{Query}(x_1, y_1,
+             x_2, y_2)$
+             \hfill\Comment{$\mathcal{O}(1)$}
+      \State $\mathit{total} \leftarrow \mathit{total}
+             + \lceil (I_{\max}{-}I_{\min})/\delta \rceil
+             + 1$
+    \EndFor
+  \EndFor
+  \State \textbf{yield} $(\varepsilon,\, \mathit{total})$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log \varepsilon_i,\, \log N(\varepsilon_i))\}$
+\end{algorithmic}
+\end{algorithm}
+
+With $\mathcal{O}(1)$ range queries, the per-scale traversal
+visits $\Theta(N/\varepsilon^2)$ cells at unit cost each,
+mirroring the optimised BC profile. The total cost becomes
+
+\begin{equation}
+  T_{\text{DBC,opt}}(N, m)
+    = \Theta(N \log N)
+    + \sum_{\varepsilon \in \mathcal{S}}
+      \Theta\!\left(\frac{N}{\varepsilon^{2}}\right)
+    = \Theta(N \log N),
+  \label{eq:dbc_opt_total}
+\end{equation}
+
+\noindent where the preprocessing term $\Theta(N \log N)$
+dominates for any fixed scale set. The auxiliary space is
+$\Theta(N \log N)$ for the two sparse tables — a higher
+memory footprint than the $\Theta(N)$ integral image of BC
+and GB, which constitutes the primary space trade-off of the
+DBC optimisation. Table~\ref{tab:dbc_complexity} summarises
+the complexity bounds for both DBC formulations.
+
+\begin{table}[h]
+\centering
+\caption{Asymptotic complexity of Differential Box-Counting.}
+\label{tab:dbc_complexity}
+\begin{tabular}{lcc}
+\hline
+\textbf{Formulation} & \textbf{Time} &
+\textbf{Aux.\ Space} \\
+\hline
+Naive     & $\Theta(mN)$        & $\Theta(1)$        \\
+Optimised & $\Theta(N \log N)$  & $\Theta(N \log N)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------
+\subsection{Blanket Method (BM)}
+\label{subsec:bm}
+% ------------------------------------------------------------
+
+\subsubsection{Naive Formulation}
+
+The Blanket Method, introduced by Peleg et
+al.~\cite{Peleg1984}, estimates the fractal dimension of the
+intensity surface $z = I(x,y)$ by measuring the growth rate
+of the surface's apparent area as a morphological cover is
+progressively expanded around it. Two complementary surfaces
+— an \textit{upper blanket} $u_\varepsilon(x,y)$ and a
+\textit{lower blanket} $b_\varepsilon(x,y)$ — are constructed
+by iterated dilation and erosion, respectively, starting from
+the initial condition $u_0 = b_0 = I$ and advancing through
+the recurrences
+
+\begin{align}
+  u_\varepsilon(x,y)
+    &= \max\!\left\{
+         u_{\varepsilon-1}(x,y) + 1,\;
+         \max_{(s,t)\in\mathcal{N}(x,y)}
+         u_{\varepsilon-1}(s,t)
+       \right\},
+  \label{eq:bm_upper} \\
+  b_\varepsilon(x,y)
+    &= \min\!\left\{
+         b_{\varepsilon-1}(x,y) - 1,\;
+         \min_{(s,t)\in\mathcal{N}(x,y)}
+         b_{\varepsilon-1}(s,t)
+       \right\},
+  \label{eq:bm_lower}
+\end{align}
+
+\noindent where $\mathcal{N}(x,y)$ denotes the 4-connected
+neighbourhood of pixel $(x,y)$. The blanket volume at
+dilation level $\varepsilon$ is
+
+\begin{equation}
+  V(\varepsilon)
+    = \sum_{x,y}
+      \bigl[u_\varepsilon(x,y) - b_\varepsilon(x,y)\bigr],
+  \label{eq:bm_volume}
+\end{equation}
+
+\noindent and the scale-dependent area measure is obtained as
+$A(\varepsilon) = [V(\varepsilon) - V(\varepsilon-1)]/2$.
+Substituting $A(\varepsilon)$ for $M(\varepsilon)$ in
+Eq.~\eqref{eq:loglog} and fitting the slope over a set of
+dilation levels $\mathcal{S} = \{1, 2, \ldots, \varepsilon_{\max}\}$
+yields the fractal dimension estimate~\cite{Peleg1984,
+Falconer2003}. Because the blankets are built directly from
+the grayscale intensity surface without binarisation, BM
+retains the full gradient information of the image, making it
+the most information-preserving of the four methods evaluated
+in this work. Algorithm~\ref{alg:bm_naive} details the naive
+procedure.
+
+\begin{algorithm}[t]
+\caption{Naive Blanket Method}
+\label{alg:bm_naive}
+\begin{algorithmic}[1]
+\Require Grayscale image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         maximum dilation level $\varepsilon_{\max}$
+\Ensure  Pairs $\{(\varepsilon,\, A(\varepsilon)) :
+         \varepsilon = 1,\ldots,\varepsilon_{\max}\}$
+\State $u \leftarrow I$;\; $b \leftarrow I$
+       \hfill\Comment{initialise both blankets}
+\State $V_{\text{prev}} \leftarrow \sum_{x,y}
+       [u[x][y] - b[x][y]]$
+\For{$\varepsilon \leftarrow 1$ \textbf{to}
+     $\varepsilon_{\max}$}
+  \State $u' \leftarrow$ new array of size $W \times H$
+  \State $b' \leftarrow$ new array of size $W \times H$
+  \For{$x \leftarrow 0$ \textbf{to} $W-1$}
+    \For{$y \leftarrow 0$ \textbf{to} $H-1$}
+      \State $u'[x][y] \leftarrow u[x][y] + 1$
+      \State $b'[x][y] \leftarrow b[x][y] - 1$
+      \For{each $(s,t) \in \mathcal{N}(x,y)$}
+        \State $u'[x][y] \leftarrow
+               \max(u'[x][y],\; u[s][t])$
+        \State $b'[x][y] \leftarrow
+               \min(b'[x][y],\; b[s][t])$
+      \EndFor
+    \EndFor
+  \EndFor
+  \State $u \leftarrow u'$;\; $b \leftarrow b'$
+  \State $V \leftarrow \sum_{x,y}[u[x][y]-b[x][y]]$
+  \State \textbf{yield}
+         $\bigl(\varepsilon,\;(V - V_{\text{prev}})/2\bigr)$
+  \State $V_{\text{prev}} \leftarrow V$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log \varepsilon_i,\, \log A(\varepsilon_i))\}$
+\end{algorithmic}
+\end{algorithm}
+
+Each dilation step iterates over all $N$ pixels; for each
+pixel, the 4-connected neighbourhood $\mathcal{N}$ is
+examined in $\mathcal{O}(1)$ (four fixed neighbours), giving
+a per-level cost of $\Theta(N)$. Since
+$\varepsilon_{\max}$ levels are processed sequentially, the
+total cost of the naive BM is
+
+\begin{equation}
+  T_{\text{BM,naive}}(N, \varepsilon_{\max})
+    = \Theta(N \cdot \varepsilon_{\max}).
+  \label{eq:bm_naive_total}
+\end{equation}
+
+Two auxiliary arrays of size $N$ are maintained at all times
+(the current and previous blanket pair), giving $\Theta(N)$
+auxiliary space. Although the per-level constant factor is
+small — only four neighbour comparisons per pixel — the
+sequential dependence between levels (each recurrence depends
+on the previous blanket) prevents parallelism across levels
+and makes the $\varepsilon_{\max}$ factor unavoidable in
+the naive formulation.
+
+% ............................................................
+\subsubsection{Optimised Formulation}
+
+A critical observation regarding
+Eqs.~\eqref{eq:bm_upper}--\eqref{eq:bm_lower} is that, at
+each dilation level $\varepsilon$, the update for $u_\varepsilon$
+requires the maximum of $u_{\varepsilon-1}$ over a
+$(2{\varepsilon}+1) \times (2{\varepsilon}+1)$ neighbourhood
+— equivalently, a 2D sliding-window maximum with window side
+$K = 2\varepsilon+1$. The naive implementation of this
+2D window operation visits all $K^2 = \Theta(\varepsilon^2)$
+neighbours per pixel, raising the per-level cost to
+$\Theta(N\varepsilon^2)$ and the total cost to
+$\Theta(N\varepsilon_{\max}^3)$ when generalised to
+variable-radius dilation. This $\varepsilon^2$ factor is
+eliminated by exploiting the \textit{separability} of the
+rectangular maximum and minimum filters: a 2D sliding-window
+extremum over a $K \times K$ window can be decomposed into
+two successive 1D sliding-window passes — one horizontal of
+length $K$ applied to each row, followed by one vertical of
+length $K$ applied to each column of the intermediate
+result~\cite{Lemire2006}. Each 1D pass is solved in $\Theta(N)$
+using a \textit{monotonic deque} (double-ended queue) that
+maintains a decreasing (for maximum) or increasing (for
+minimum) sequence of candidate extrema over the active window,
+processing each pixel with at most two deque operations
+— one enqueue and at most one dequeue — giving exactly
+$\Theta(N)$ total operations per pass regardless of $K$,
+as established by Lemire~\cite{Lemire2006}. The two
+separable passes together cost $\Theta(N)$ per dilation level,
+reducing the total BM cost to
+
+\begin{equation}
+  T_{\text{BM,opt}}(N, \varepsilon_{\max})
+    = \Theta(N \cdot \varepsilon_{\max}),
+  \label{eq:bm_opt_total}
+\end{equation}
+
+\noindent which matches the naive total of
+Eq.~\eqref{eq:bm_naive_total} in asymptotic class but with a
+strictly smaller constant: the naive approach costs
+$4N$ operations per level (four fixed-neighbourhood
+comparisons), while the optimised approach costs $4N$
+deque operations per level (two passes of two operations
+each), so the constant is identical for the 4-connected case.
+The optimisation becomes decisive when BM is generalised to
+larger structuring elements or when the dilation is
+implemented as a single multi-scale pass over the full
+$K \times K$ window, where the naive cost is $\Theta(NK^2)$
+per level versus $\Theta(N)$ for the separable deque
+formulation. Algorithm~\ref{alg:bm_opt} presents the
+optimised procedure.
+
+\begin{algorithm}[t]
+\caption{Optimised Blanket Method (Separable Monotonic Deque)}
+\label{alg:bm_opt}
+\begin{algorithmic}[1]
+\Require Grayscale image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         maximum dilation level $\varepsilon_{\max}$
+\Ensure  Pairs $\{(\varepsilon,\, A(\varepsilon)) :
+         \varepsilon = 1,\ldots,\varepsilon_{\max}\}$
+\State $u \leftarrow I$;\; $b \leftarrow I$
+\State $V_{\text{prev}} \leftarrow \sum_{x,y}
+       [u[x][y] - b[x][y]]$
+\For{$\varepsilon \leftarrow 1$ \textbf{to}
+     $\varepsilon_{\max}$}
+  \State $u_{\text{inc}} \leftarrow u + 1$
+         \hfill\Comment{element-wise increment,
+         $\Theta(N)$}
+  \State $b_{\text{dec}} \leftarrow b - 1$
+  \State $u' \leftarrow
+         \textsc{SlidingMax2D}(u,\, K{=}3)$
+         \hfill\Comment{separable deque,
+         $\Theta(N)$ \cite{Lemire2006}}
+  \State $b' \leftarrow
+         \textsc{SlidingMin2D}(b,\, K{=}3)$
+         \hfill\Comment{separable deque,
+         $\Theta(N)$}
+  \State $u \leftarrow
+         \max(u_{\text{inc}},\, u')$
+         \hfill\Comment{element-wise,
+         $\Theta(N)$}
+  \State $b \leftarrow
+         \min(b_{\text{dec}},\, b')$
+  \State $V \leftarrow \sum_{x,y}
+         [u[x][y] - b[x][y]]$
+  \State \textbf{yield}
+         $\bigl(\varepsilon,\;
+         (V - V_{\text{prev}})/2\bigr)$
+  \State $V_{\text{prev}} \leftarrow V$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log \varepsilon_i,\, \log A(\varepsilon_i))\}$
+\end{algorithmic}
+\end{algorithm}
+
+The auxiliary space requirement of the optimised BM is
+$\Theta(N)$ — four arrays of size $N$ (two blankets and two
+intermediate buffers) plus the $\mathcal{O}(K)$ deque
+storage per row or column pass, which is negligible.
+Table~\ref{tab:bm_complexity} consolidates the complexity
+bounds for both BM formulations, and
+Table~\ref{tab:all_complexity} provides a consolidated
+comparison of all four methods.
+
+\begin{table}[h]
+\centering
+\caption{Asymptotic complexity of the Blanket Method.}
+\label{tab:bm_complexity}
+\begin{tabular}{lcc}
+\hline
+\textbf{Formulation} & \textbf{Time} &
+\textbf{Aux.\ Space} \\
+\hline
+Naive     & $\Theta(N\varepsilon_{\max})$ & $\Theta(N)$ \\
+Optimised & $\Theta(N\varepsilon_{\max})$ & $\Theta(N)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Consolidated asymptotic complexity of all four
+         methods (optimised formulations).}
+\label{tab:all_complexity}
+\begin{tabular}{lccc}
+\hline
+\textbf{Method} & \textbf{Input} &
+\textbf{Time} & \textbf{Aux.\ Space} \\
+\hline
+BC  (opt.) & Binary    & $\Theta(N)$           & $\Theta(N)$        \\
+GB  (opt.) & Binary    & $\Theta(mN)$          & $\Theta(N)$        \\
+DBC (opt.) & Grayscale & $\Theta(N \log N)$    & $\Theta(N \log N)$ \\
+BM  (opt.) & Grayscale & $\Theta(N\varepsilon_{\max})$ & $\Theta(N)$ \\
 \hline
 \end{tabular}
 \end{table}
