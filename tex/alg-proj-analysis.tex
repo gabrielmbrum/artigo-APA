@@ -1,1 +1,437 @@
-\section{Algorithms Analysis}
+% ============================================================
+%  SECTION 3 — ALGORITHM PROJECT AND ANALYSIS
+% ============================================================
+\section{Algorithm Project and Analysis}
+\label{sec:algorithms}
+
+This section presents the algorithmic design and formal
+asymptotic analysis of the four fractal dimension estimators
+under study. For each method, a naive brute-force formulation
+is first described through pseudocode and characterised in
+terms of its time and auxiliary space complexity; an optimised
+counterpart is then derived by identifying the computational
+bottleneck and replacing it with a structurally superior
+data-structure choice. Throughout this section, $N = W \times
+H$ denotes the total pixel count of the input image, $m =
+|\mathcal{S}|$ the number of scales in the evaluation set
+$\mathcal{S}$, and $\varepsilon$ (or $L$, used interchangeably
+for the GB) the current box side length. Asymptotic bounds are
+stated in $\mathcal{O}$, $\Theta$, and $\Omega$ notation
+following the Bachmann–Landau conventions; $\Theta$ is used
+whenever both upper and lower bounds coincide, and
+$\mathcal{O}$ when only an upper bound is asserted.
+
+% ------------------------------------------------------------
+\subsection{Classical Box-Counting (BC)}
+\label{subsec:bc}
+% ------------------------------------------------------------
+
+\subsubsection{Naive Formulation}
+
+The naive BC algorithm directly implements
+Eq.~\eqref{eq:bc_count} by iterating over every grid cell and
+scanning all pixels within it to test for occupancy. For each
+scale $\varepsilon \in \mathcal{S}$, the image domain is
+partitioned into $\lceil W/\varepsilon \rceil \times \lceil
+H/\varepsilon \rceil$ non-overlapping cells; within each cell,
+pixels are visited one by one until a foreground pixel is
+found or the cell is exhausted~\cite{Mandelbrot1982,
+Liebovitch1989}. Algorithm~\ref{alg:bc_naive} details this
+procedure.
+
+\begin{algorithm}[t]
+\caption{Naive Classical Box-Counting}
+\label{alg:bc_naive}
+\begin{algorithmic}[1]
+\Require Binary image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         scale set $\mathcal{S}$
+\Ensure  Pairs $\{(\varepsilon,\, N(\varepsilon)) :
+         \varepsilon \in \mathcal{S}\}$
+\State Binarise $I$ via Otsu's threshold $t^{*}$
+       \cite{Otsu1979}
+\For{each $\varepsilon \in \mathcal{S}$}
+  \State $\mathit{count} \leftarrow 0$
+  \For{$b_x \leftarrow 0$ \textbf{to}
+       $\lceil W/\varepsilon \rceil - 1$}
+    \For{$b_y \leftarrow 0$ \textbf{to}
+         $\lceil H/\varepsilon \rceil - 1$}
+      \State $\mathit{occupied} \leftarrow
+             \textsc{False}$
+      \For{$dx \leftarrow 0$ \textbf{to}
+           $\varepsilon - 1$}
+        \For{$dy \leftarrow 0$ \textbf{to}
+             $\varepsilon - 1$}
+          \State $px \leftarrow b_x \cdot \varepsilon
+                 + dx$;\;
+                 $py \leftarrow b_y \cdot \varepsilon
+                 + dy$
+          \If{$px < W \;\wedge\; py < H \;\wedge\;
+              I[px][py] = 1$}
+            \State $\mathit{occupied} \leftarrow
+                   \textsc{True}$;\;
+                   \textbf{break}
+          \EndIf
+        \EndFor
+      \EndFor
+      \If{$\mathit{occupied}$}
+        \State $\mathit{count} \leftarrow
+               \mathit{count} + 1$
+      \EndIf
+    \EndFor
+  \EndFor
+  \State \textbf{yield} $(\varepsilon,\, \mathit{count})$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log \varepsilon_i,\, \log N(\varepsilon_i))\}$
+\end{algorithmic}
+\end{algorithm}
+
+For a fixed $\varepsilon$, the grid contains
+$\lceil W/\varepsilon \rceil \cdot \lceil H/\varepsilon
+\rceil = \Theta(N/\varepsilon^{2})$ cells, each requiring at
+most $\varepsilon^{2}$ pixel inspections in the worst case
+(fully foreground cell) and as few as one in the best case
+(first pixel is foreground). The worst-case per-scale cost is
+therefore
+
+\begin{equation}
+  T_{\text{BC,naive}}(\varepsilon)
+    = \Theta\!\left(\frac{N}{\varepsilon^{2}}\right)
+      \cdot \mathcal{O}(\varepsilon^{2})
+    = \mathcal{O}(N).
+\end{equation}
+
+The lower bound is $\Omega(N/\varepsilon^{2})$, since every
+cell must be visited regardless of its content. Beyond the
+read-only input buffer of size $\Theta(N)$, the naive
+formulation requires only a constant number of scalar
+accumulators, yielding $\Theta(1)$ auxiliary space. Summing
+over all $m$ scales and including the $\Theta(N)$ binarisation
+pass:
+
+\begin{equation}
+  T_{\text{BC,naive}}(N,m)
+    = \Theta(N) + \sum_{\varepsilon \in \mathcal{S}}
+      \mathcal{O}(N)
+    = \mathcal{O}(mN).
+  \label{eq:bc_naive_time}
+\end{equation}
+
+% ............................................................
+\subsubsection{Optimised Formulation}
+
+The inner double loop of Algorithm~\ref{alg:bc_naive} is the
+computational bottleneck: it re-inspects up to $\varepsilon^2$
+pixels per cell at every scale. This bottleneck is eliminated
+by pre-computing the two-dimensional prefix sum (integral
+image) $P$ defined in Eq.~\eqref{eq:prefix}, which allows any
+rectangular region sum to be answered in $\mathcal{O}(1)$
+using Eq.~\eqref{eq:rect_sum}~\cite{Crow1984}. A cell is
+occupied if and only if $\sigma > 0$, replacing the entire
+inner scan with a single arithmetic expression.
+Algorithm~\ref{alg:bc_opt} presents the optimised procedure.
+
+\begin{algorithm}[t]
+\caption{Optimised Box-Counting (Integral Image)}
+\label{alg:bc_opt}
+\begin{algorithmic}[1]
+\Require Binary image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         scale set $\mathcal{S}$
+\Ensure  Pairs $\{(\varepsilon,\, N(\varepsilon)) :
+         \varepsilon \in \mathcal{S}\}$
+\State Binarise $I$ via Otsu's threshold $t^{*}$
+       \cite{Otsu1979}
+\State Build integral image $P$ via
+       Eq.~\eqref{eq:prefix} \hfill
+       \Comment{$\Theta(N)$ time and space \cite{Crow1984}}
+\For{each $\varepsilon \in \mathcal{S}$}
+  \State $\mathit{count} \leftarrow 0$
+  \For{$b_x \leftarrow 0$ \textbf{to}
+       $\lceil W/\varepsilon \rceil - 1$}
+    \For{$b_y \leftarrow 0$ \textbf{to}
+         $\lceil H/\varepsilon \rceil - 1$}
+      \State $x_1 \leftarrow b_x \cdot \varepsilon$;\;
+             $y_1 \leftarrow b_y \cdot \varepsilon$
+      \State $x_2 \leftarrow \min(x_1{+}\varepsilon{-}1,
+             W{-}1)$;\;
+             $y_2 \leftarrow \min(y_1{+}\varepsilon{-}1,
+             H{-}1)$
+      \If{$\sigma(x_1, y_1, x_2, y_2) > 0$}
+             \hfill\Comment{Eq.~\eqref{eq:rect_sum},
+             $\mathcal{O}(1)$}
+        \State $\mathit{count} \leftarrow
+               \mathit{count} + 1$
+      \EndIf
+    \EndFor
+  \EndFor
+  \State \textbf{yield} $(\varepsilon,\, \mathit{count})$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log \varepsilon_i,\, \log N(\varepsilon_i))\}$
+\end{algorithmic}
+\end{algorithm}
+
+The integral image is constructed once in $\Theta(N)$ time and
+shared across all scales. For each $\varepsilon \in
+\mathcal{S}$, the outer cell loops visit exactly
+$\Theta(N/\varepsilon^{2})$ cells, each processed in
+$\mathcal{O}(1)$:
+
+\begin{equation}
+  T_{\text{BC,opt}}(N, m)
+    = \Theta(N)
+    + \sum_{\varepsilon \in \mathcal{S}}
+      \Theta\!\left(\frac{N}{\varepsilon^{2}}\right).
+  \label{eq:bc_opt_time}
+\end{equation}
+
+For the typical scale set $\mathcal{S} = \{2^k : k = 1,
+\ldots, \lfloor \log_2 \min(W,H) \rfloor\}$, the sum
+$\sum_{\varepsilon} N/\varepsilon^{2}$ is dominated by the
+smallest scale ($\varepsilon = 2$), giving $\Theta(N/4)$.
+The total cost is therefore $\Theta(N)$, a strict improvement
+over the $\mathcal{O}(mN)$ naive bound of
+Eq.~\eqref{eq:bc_naive_time}. The integral image $P$ requires
+$\Theta(N)$ auxiliary memory as the sole structure that grows
+with the input, so the total auxiliary space of the optimised
+formulation is $\Theta(N)$ — a constant-factor overhead
+relative to the input. Table~\ref{tab:bc_complexity}
+consolidates these bounds for both formulations.
+
+\begin{table}[h]
+\centering
+\caption{Asymptotic complexity of Classical Box-Counting.}
+\label{tab:bc_complexity}
+\begin{tabular}{lcc}
+\hline
+\textbf{Formulation} & \textbf{Time} &
+\textbf{Aux.\ Space} \\
+\hline
+Naive     & $\mathcal{O}(mN)$ & $\Theta(1)$ \\
+Optimised & $\Theta(N)$       & $\Theta(N)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------
+\subsection{Gliding Box (GB)}
+\label{subsec:gb}
+% ------------------------------------------------------------
+
+\subsubsection{Naive Formulation}
+
+The Gliding Box algorithm, introduced by Allain and
+Cloitre~\cite{Allain1991}, replaces the disjoint grid of BC
+with a dense sliding window. For each scale $L \in
+\mathcal{S}$, the box is positioned at every valid pixel
+$(x, y)$, and the box mass $m_{x,y}(L)$ of
+Eq.~\eqref{eq:gb_mass} is computed by summing all $L^{2}$
+pixels within the window. The resulting mass-frequency
+histogram $n(m, L)$ is then normalised to yield $P(m, L)$,
+from which the mean mass $\mu(L)$ of Eq.~\eqref{eq:gb_mu1}
+and the lacunarity $\Lambda(L)$ of Eq.~\eqref{eq:lacunarity}
+are computed~\cite{Plotnick1996,Tolle2008}.
+Algorithm~\ref{alg:gb_naive} details the naive procedure.
+
+\begin{algorithm}[t]
+\caption{Naive Gliding Box}
+\label{alg:gb_naive}
+\begin{algorithmic}[1]
+\Require Binary image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         scale set $\mathcal{S}$
+\Ensure  Pairs $\{(L,\, \mu(L),\, \Lambda(L)) :
+         L \in \mathcal{S}\}$
+\State Binarise $I$ via Otsu's threshold $t^{*}$
+       \cite{Otsu1979}
+\For{each $L \in \mathcal{S}$}
+  \State $H[0 \ldots L^{2}] \leftarrow 0$
+         \hfill\Comment{mass-frequency histogram}
+  \For{$x \leftarrow 0$ \textbf{to} $W - L$}
+    \For{$y \leftarrow 0$ \textbf{to} $H - L$}
+      \State $\mathit{mass} \leftarrow 0$
+      \For{$dx \leftarrow 0$ \textbf{to} $L - 1$}
+        \For{$dy \leftarrow 0$ \textbf{to} $L - 1$}
+          \State $\mathit{mass} \leftarrow
+                 \mathit{mass} + I[x{+}dx][y{+}dy]$
+        \EndFor
+      \EndFor
+      \State $H[\mathit{mass}] \leftarrow
+             H[\mathit{mass}] + 1$
+    \EndFor
+  \EndFor
+  \State $T \leftarrow (W{-}L{+}1)(H{-}L{+}1)$
+  \State Compute $\mu(L)$ and $\mu^{(2)}(L)$ from $H$
+         and $T$ via Eqs.~\eqref{eq:gb_mu1}--\eqref{eq:gb_mu2}
+  \State Compute $\Lambda(L)$ via
+         Eq.~\eqref{eq:lacunarity}
+  \State \textbf{yield} $(L,\, \mu(L),\, \Lambda(L))$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log L_i,\, \log \mu(L_i))\}$
+       \cite{Plotnick1996}
+\end{algorithmic}
+\end{algorithm}
+
+For a fixed scale $L$, there are $T(L) = (W - L + 1)(H - L
++ 1) = \Theta(N)$ valid window positions, each requiring a
+full $L \times L$ pixel scan costing $\Theta(L^{2})$, so the
+per-scale cost is
+
+\begin{equation}
+  T_{\text{GB,naive}}(L)
+    = \Theta(N) \cdot \Theta(L^{2})
+    = \Theta(NL^{2}).
+  \label{eq:gb_naive_scale}
+\end{equation}
+
+The mass-frequency histogram requires $\Theta(L^{2})$ entries
+at scale $L$, giving $\mathcal{O}(L_{\max}^{2})$ auxiliary
+space — negligible relative to the input when $L_{\max} \ll
+\sqrt{N}$, but potentially significant for coarse scales.
+Summing over all $m$ scales and including the binarisation
+pass:
+
+\begin{equation}
+  T_{\text{GB,naive}}(N, m)
+    = \Theta(N) +
+      \sum_{L \in \mathcal{S}} \Theta(NL^{2})
+    = \Theta\!\left(N \sum_{L \in \mathcal{S}} L^{2}\right).
+  \label{eq:gb_naive_total}
+\end{equation}
+
+For a scale set whose largest element is $L_{\max}$, the sum
+$\sum L^{2}$ is $\Theta(m L_{\max}^{2})$ in the worst case,
+making the naive GB substantially more expensive than the
+naive BC for the same scale set. The dependence on $L^{2}$
+per position constitutes the algorithmic bottleneck identified
+for optimisation.
+
+% ............................................................
+\subsubsection{Optimised Formulation}
+
+The $\Theta(L^{2})$ per-position cost of the naive GB arises
+entirely from the inner double loop that recomputes the box
+sum from scratch at each window position. This is identical
+in structure to the inner scan of naive BC, and is eliminated
+by the same integral-image mechanism: pre-computing $P$ via
+Eq.~\eqref{eq:prefix} and querying $\sigma$ via
+Eq.~\eqref{eq:rect_sum} reduces each mass evaluation to
+$\mathcal{O}(1)$~\cite{Crow1984}. Since BC and GB share the
+same input image, the integral image constructed for BC can be
+reused directly for GB without additional memory allocation,
+provided the two methods are executed within the same pipeline.
+Algorithm~\ref{alg:gb_opt} presents the optimised procedure.
+
+\begin{algorithm}[t]
+\caption{Optimised Gliding Box (Integral Image)}
+\label{alg:gb_opt}
+\begin{algorithmic}[1]
+\Require Binary image $I[0\ldots W{-}1][0\ldots H{-}1]$,
+         scale set $\mathcal{S}$, integral image $P$
+         (pre-computed, shared with BC)
+\Ensure  Pairs $\{(L,\, \mu(L),\, \Lambda(L)) :
+         L \in \mathcal{S}\}$
+\For{each $L \in \mathcal{S}$}
+  \State $H[0 \ldots L^{2}] \leftarrow 0$
+  \For{$x \leftarrow 0$ \textbf{to} $W - L$}
+    \For{$y \leftarrow 0$ \textbf{to} $H - L$}
+      \State $\mathit{mass} \leftarrow
+             \sigma(x,\, y,\, x{+}L{-}1,\, y{+}L{-}1)$
+             \hfill\Comment{Eq.~\eqref{eq:rect_sum},
+             $\mathcal{O}(1)$ \cite{Crow1984}}
+      \State $H[\mathit{mass}] \leftarrow
+             H[\mathit{mass}] + 1$
+    \EndFor
+  \EndFor
+  \State $T \leftarrow (W{-}L{+}1)(H{-}L{+}1)$
+  \State Compute $\mu(L)$ and $\mu^{(2)}(L)$ from $H$
+         and $T$
+  \State Compute $\Lambda(L)$ via
+         Eq.~\eqref{eq:lacunarity}
+  \State \textbf{yield} $(L,\, \mu(L),\, \Lambda(L))$
+\EndFor
+\State Estimate $D_B$ by least-squares regression on
+       $\{(\log L_i,\, \log \mu(L_i))\}$
+       \cite{Plotnick1996}
+\end{algorithmic}
+\end{algorithm}
+
+With $\mathcal{O}(1)$ mass queries, the per-scale cost
+collapses to the number of window positions:
+
+\begin{equation}
+  T_{\text{GB,opt}}(L)
+    = \Theta(N) \cdot \mathcal{O}(1)
+    = \Theta(N).
+  \label{eq:gb_opt_scale}
+\end{equation}
+
+Including the single shared $\Theta(N)$ prefix-sum
+construction and the binarisation pass, the total cost becomes
+
+\begin{equation}
+  T_{\text{GB,opt}}(N, m)
+    = \Theta(N) + \sum_{L \in \mathcal{S}} \Theta(N)
+    = \Theta(mN),
+  \label{eq:gb_opt_total}
+\end{equation}
+
+a factor of $\Theta(L^{2})$ improvement over
+Eq.~\eqref{eq:gb_naive_scale} at each scale — a gain that
+grows quadratically with the box side and is therefore most
+significant at coarse scales. The integral image $P$ is shared
+with BC and constitutes the sole $\Theta(N)$ auxiliary
+structure; the per-scale histogram $H$ requires
+$\Theta(L^{2})$ entries, which is typically negligible,
+keeping the total auxiliary space at $\Theta(N)$. Both
+optimised formulations therefore share the same $\Theta(N)$
+integral image, and their key asymptotic difference lies in
+the number of positions evaluated per scale: BC visits
+$\Theta(N/\varepsilon^{2})$ disjoint cells, whereas GB visits
+$\Theta(N)$ overlapping positions regardless of $L$,
+incurring a per-scale cost that is a factor of
+$\Theta(L^{2})$ greater than that of optimised BC at the same
+scale. This overhead is the algorithmic price of the richer
+mass-frequency distribution that GB produces relative to the
+binary occupancy count of BC, and which enables the joint
+estimation of $D_B$ and $\Lambda$ used in recent histological
+classification work~\cite{Roberto2021,Borgue2025}.
+Table~\ref{tab:gb_complexity} consolidates the complexity
+bounds for both GB formulations, and
+Table~\ref{tab:bc_gb_comparison} contrasts the two methods
+side by side.
+
+\begin{table}[h]
+\centering
+\caption{Asymptotic complexity of the Gliding Box method.}
+\label{tab:gb_complexity}
+\begin{tabular}{lcc}
+\hline
+\textbf{Formulation} & \textbf{Time} &
+\textbf{Aux.\ Space} \\
+\hline
+Naive     & $\Theta\!\left(N\!\sum_{L}L^{2}\right)$ &
+            $\mathcal{O}(L_{\max}^{2})$ \\
+Optimised & $\Theta(mN)$ & $\Theta(N)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{BC vs.\ GB optimised formulations (per scale).}
+\label{tab:bc_gb_comparison}
+\begin{tabular}{lccc}
+\hline
+\textbf{Method} & \textbf{Positions/scale} &
+\textbf{Cost/position} & \textbf{Per-scale cost} \\
+\hline
+BC (opt.) & $\Theta(N/\varepsilon^{2})$ &
+            $\mathcal{O}(1)$ &
+            $\Theta(N/\varepsilon^{2})$ \\
+GB (opt.) & $\Theta(N)$ &
+            $\mathcal{O}(1)$ &
+            $\Theta(N)$ \\
+\hline
+\end{tabular}
+\end{table}
