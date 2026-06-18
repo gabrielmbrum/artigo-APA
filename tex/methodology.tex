@@ -1,1 +1,195 @@
+% ============================================================
+%  SECTION 4 — METHODOLOGY
+% ============================================================
 \section{Methodology}
+\label{sec:methodology}
+
+% ------------------------------------------------------------
+\subsection{Materials}
+\label{subsec:materials}
+% ------------------------------------------------------------
+
+The experimental evaluation is conducted on the UCSB Breast
+Cancer Histology dataset, provided by the Center for
+Bio-Image Informatics of the University of California, Santa
+Barbara~\cite{Gelasca2008}. The dataset comprises 58
+hematoxylin and eosin~(H\&E) stained histological images of
+breast tissue at a fixed resolution of $896 \times 768$
+pixels, partitioned into two classes: 32 benign and 26
+malignant samples. The class imbalance ratio of
+approximately 1.23:1 is mild enough to not require
+resampling for the fractal dimension estimation task, since
+$D$ is computed independently per image and no
+classifier is trained on the extracted features.
+
+This dataset was selected for three reasons directly relevant
+to the algorithmic focus of this work. First, its fixed
+resolution ensures that the pixel count $N = 896 \times 768
+= 688{,}128$ is identical across all images, making
+wall-clock time comparisons across methods and
+formulations free of resolution confounds. Second, the two
+well-defined tissue classes — benign and malignant — provide
+a concrete discriminatory benchmark against which the
+effectiveness of each algorithm's $D$ estimate can be
+assessed, following the methodology established in prior
+fractal-based histological classification
+work~\cite{Roberto2021,Borgue2025}. Third, the dataset is
+publicly available as a Kaggle dataset
+(\texttt{ucsb-breast-cancer-histology}), enabling direct
+reproducibility of all experiments within the execution
+environment described in Section~\ref{subsec:environment}.
+
+All images are loaded as 8-bit grayscale arrays ($G = 256$)
+prior to processing. For the binary-domain methods~(BC and
+GB), a binarisation step is applied using Otsu's global
+threshold~\cite{Otsu1979} before the fractal dimension
+estimation loop; this step is timed and reported separately
+from the algorithmic core, as described in
+Section~\ref{subsec:environment}.
+
+% ------------------------------------------------------------
+\subsection{Experimental Environment and Protocol}
+\label{subsec:environment}
+% ------------------------------------------------------------
+
+All experiments are executed on Kaggle Notebooks
+(\url{https://www.kaggle.com}) using a CPU-only session,
+to ensure that the measured execution times reflect the
+sequential computational complexity of each algorithm
+without GPU acceleration. The hardware configuration
+provided by the Kaggle CPU session consists of an Intel
+Xeon processor with two virtual cores and approximately
+13~GB of available RAM. The software environment is fixed
+at Python~3.10 with NumPy~1.26, SciPy~1.11, and
+scikit-image~0.22; the complete \texttt{requirements.txt} is included in the
+\textit{github} repository to ensure reproducibility.
+\footnote{Source code available at:
+\href{https://https://github.com/gabrielmbrum} {\texttt{https://github.com/gabrielmbrum}}.}
+
+The scale set used across all four methods is fixed as
+$\mathcal{S} = \{2, 4, 8, 16, 32, 64\}$, comprising $m = 6$
+scales spanning approximately 1.5 decades of spatial
+frequency. This range respects the lower bound imposed by
+the pixel size and the upper bound of $L_{\max} = 64 \ll
+\sqrt{N} \approx 830$, ensuring that the covering assumption
+underlying each algorithm remains valid throughout the scale
+range. The same $\mathcal{S}$ is used for all methods to
+guarantee that differences in execution time and $R^{2}$
+are attributable solely to algorithmic structure rather
+than to differences in scale coverage.
+
+Each algorithm — in both its naive and optimised
+formulations — is executed 10 times per image. The first
+run is discarded as a warm-up to eliminate cold-cache and
+interpreter overhead effects; the remaining 9 runs are used
+to compute the mean wall-clock time $\bar{t}$ and standard
+deviation $\sigma_t$. Wall-clock time is measured using
+Python's \texttt{time.perf\_counter()}, which provides
+sub-microsecond resolution on the target platform. Runs
+exhibiting a coefficient of variation
+
+\begin{equation}
+  CV = \frac{\sigma_t}{\bar{t}} \times 100\%
+  \label{eq:cv}
+\end{equation}
+
+\noindent exceeding 5\% are flagged and re-evaluated with
+additional runs until $CV < 5\%$, following the adaptive
+stability criterion recommended for wall-clock
+benchmarking~\cite{Flemming1986}. This threshold ensures
+that the reported means are statistically stable without
+imposing an unnecessarily large number of repetitions.
+
+Pre-processing time is measured and reported separately
+from the algorithmic core. Concretely, for BC and GB, the
+wall-clock time of the Otsu binarisation step is recorded
+independently of the subsequent coverage computation,
+allowing the contribution of the pre-processing stage to
+the total execution budget to be quantified and discussed
+in Section~\ref{sec:results}. For DBC and BM, which
+operate directly on the grayscale input, no binarisation
+is performed and pre-processing time is zero by definition.
+
+% ------------------------------------------------------------
+\subsection{Evaluation Metrics}
+\label{subsec:metrics}
+% ------------------------------------------------------------
+
+Three orthogonal evaluation axes are considered, each
+capturing a distinct dimension of the algorithmic
+trade-off under study.
+
+\subsubsection{Execution Time}
+
+The primary time metric is the mean wall-clock time
+$\bar{t}$ (in seconds) averaged over all 58 images and
+9 valid runs per image. To assess the agreement between
+theoretical predictions and empirical scaling behaviour,
+$\bar{t}$ is plotted as a function of image size $N$ across
+sub-images of increasing resolution, and the empirical
+slope of the $\log \bar{t}$ versus $\log N$ curve is
+compared against the theoretical exponent derived in
+Section~\ref{sec:algorithms}. Deviations between empirical
+and theoretical slopes are attributed to constant factors,
+memory hierarchy effects, and interpreter overhead, and are
+discussed qualitatively in Section~\ref{sec:results}.
+
+\subsubsection{Memory Consumption}
+
+Auxiliary memory consumption is measured as the peak
+heap allocation incurred by each algorithm beyond the
+read-only input buffer, using Python's
+\texttt{tracemalloc} module. The input buffer of size
+$\Theta(N)$ bytes is excluded from the measurement by
+recording the allocation differential between the start
+and end of the algorithmic core. This isolates the
+auxiliary space — the integral image for BC and GB, the
+sparse tables for DBC, and the blanket arrays for BM —
+and allows direct comparison against the $\Theta(N)$ and
+$\Theta(N \log N)$ theoretical bounds derived in
+Section~\ref{sec:algorithms}.
+
+\subsubsection{Effectiveness}
+
+Effectiveness is defined as the capacity of each
+algorithm's $D$ estimate to statistically discriminate
+between the benign and malignant tissue classes of the
+UCSB dataset. Formally, for each method, $D$ is computed
+for every image and the class-conditional distributions
+$\{D_i : i \in \text{benign}\}$ and $\{D_j : j \in
+\text{malignant}\}$ are obtained. The primary effectiveness
+metric is the inter-class separation
+
+\begin{equation}
+  \Delta D
+    = \bar{D}_{\text{malignant}} - \bar{D}_{\text{benign}},
+  \label{eq:delta_d}
+\end{equation}
+
+\noindent where $\bar{D}_{\text{malignant}}$ and
+$\bar{D}_{\text{benign}}$ denote the respective class
+means. A larger $|\Delta D|$ indicates that the method
+assigns meaningfully different fractal dimensions to the
+two tissue types, reflecting the clinically established
+observation that malignant tissues exhibit higher surface
+roughness and structural complexity than benign
+ones~\cite{Lopes2011,Rangayyan2007}. Statistical
+significance of $\Delta D$ is assessed via Welch's
+two-sample $t$-test at significance level $\alpha = 0.05$,
+which does not assume equal variances across classes and
+is appropriate given the mild class imbalance of the
+dataset~\cite{Welch1947}.
+
+Two complementary effectiveness indicators are also
+reported. The coefficient of determination $R^{2}$ of the
+log-log regression used to estimate $D$ from each image
+quantifies the degree to which the object exhibits
+consistent power-law scaling across the chosen scale set;
+values close to unity are a necessary condition for
+interpreting $D$ as a valid fractal descriptor~\cite{
+Lopes2011}. Additionally, for the binary methods~(BC and
+GB), the sensitivity of $\Delta D$ to the Otsu threshold
+is evaluated by perturbing $t^{*}$ by $\pm 10\%$ and
+measuring the resulting variation in $D$, providing a
+quantitative characterisation of the threshold sensitivity
+trade-off that distinguishes binary from grayscale methods.
