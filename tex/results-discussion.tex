@@ -1,26 +1,129 @@
+% ============================================================
+%  SECTION 5 — RESULTS AND DISCUSSION
+% ============================================================
 \section{Results and Discussion}
+\label{sec:results}
 
-Resultados da pesquisa
+% ------------------------------------------------------------
+\subsection{Pre-processing Cost}
+\label{subsec:preproc}
+% ------------------------------------------------------------
 
-% Exemplo de tabela
-\begin{table}[htbp]
+The binarization step required by the BC and GB methods, performed via Otsu's global threshold~\cite{Otsu1979}, was timed independently on all 58 images. The mean binarization time was $1.78 \pm 0.60$~ms per image. This represents less than $1\%$ of the total execution budget for either method in their optimized formulations. Consequently, this pre-processing stage is practically negligible and does not constitute a computational bottleneck for clinical deployment. This isolation confirms that the execution times reported subsequently for BC and GB accurately reflect the fundamental cost of their algorithmic cores.
+
+% ------------------------------------------------------------
+\subsection{Execution Time: Empirical vs. Theoretical}
+\label{subsec:res_time}
+% ------------------------------------------------------------
+
+Table~\ref{tab:res_time} summarizes the mean wall-clock execution times and empirical speedups.
+
+\begin{table}[h]
 \centering
-\small
-\caption{Legenda}
-\label{tab:label_da_table}
-\begin{tabular}{@{}lccc@{}} %formato da tabela
-\toprule
-\textbf{col1} & \textbf{bol2} & \textbf{bol3} & \textbf{col4} \\
-\midrule 
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-dado1 & dado2 & dado3 & dado4 \\
-\midrule
-\textbf{resultado1} & \textbf{resultado1} & \textbf{resultado1} & \textbf{resultado1} \\
-\bottomrule
+\caption{Mean wall-clock execution time per image. Speedup $= \bar{t}_{\text{naive}} / \bar{t}_{\text{opt}}$.}
+\label{tab:res_time}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrr}
+\hline
+\textbf{Method} & \textbf{Naive (ms)} & \textbf{Optimised (ms)} & \textbf{Speedup} \\
+\hline
+BC  & $186.0 \pm 51.0$  & $248.4 \pm 3.4$   & $0.75\times$ \\
+GB  & $2718.5 \pm 33.0$ & $45.8 \pm 2.2$    & $59.3\times$ \\
+DBC & $1027.1 \pm 19.2$ & $119.5 \pm 43.0$  & $8.6\times$  \\
+BM  & $409.7 \pm 23.6$  & $306.8 \pm 20.1$  & $1.3\times$  \\
+\hline
 \end{tabular}
-\par\vspace{1mm}
-{\footnotesize nota de rodapé}
+}
 \end{table}
+
+The empirical execution times yield a central scientific finding of this study: \textit{asymptotic superiority alone is insufficient to predict practical performance.} This is starkly evidenced by the BC method, where the structurally optimized formulation ($248.4$~ms) executed slower than the naive approach ($186.0$~ms), yielding a paradoxical speedup of $0.75\times$. Although the integral image mathematically reduces the $\mathcal{O}(N)$ worst-case per-scale traversal to a strict $\Theta(N/\varepsilon^2)$, practical performance is dictated by memory hierarchy effects and implementation-level characteristics. The integral image introduces a $\approx 2.6$~MB \texttt{int32} array that exceeds the L2 cache of the evaluation environment, inducing substantial memory-access latency. Conversely, the naive formulation accesses the original binary array in a strictly sequential pattern, maximizing hardware prefetcher efficiency. Furthermore, histological images possess dense foreground regions, allowing the naive inner loop to trigger early-exit conditions almost immediately, reducing the effective constant factor well below theoretical worst-case predictions. 
+
+In contrast, theoretical improvements aligned with massive practical gains for the GB method, achieving a $59.3\times$ speedup ($45.8$~ms vs $2718.5$~ms). Because the naive GB evaluates $\Theta(N)$ overlapping windows per scale without early-exits, the $\Theta(L^2)$ pixel additions strictly manifest in practice (costing $\approx 2.8 \times 10^9$ operations at $L=64$). The integral image optimization completely eliminates this $\Theta(L^2)$ bottleneck, proving indispensable for the clinical deployment of GB at high resolutions.
+
+The optimized DBC achieved an $8.6\times$ speedup ($119.5$~ms vs $1027.1$~ms) by utilizing sparse tables to eliminate the exhaustive $\Theta(\varepsilon^2)$ extrema search. Since true extrema computation permits no early-exit, removing the scan yields immediate wall-clock benefits. However, the high standard deviation ($\pm 43.0$~ms) stems directly from operating-system memory jitter during the massive $\Theta(N \log N)$ sparse table allocation.
+
+Finally, the BM formulation yielded a modest $1.3\times$ speedup ($306.8$~ms vs $409.7$~ms). As derived theoretically, both formulations share a $\Theta(N \varepsilon_{\max})$ complexity. The minor gain arises from vectorized NumPy filtering, which minimizes Python interpreter overhead compared to explicit neighborhood loops. Substantial speedups for BM are only anticipated when expanding beyond the $3 \times 3$ morphological structuring element.
+
+% ------------------------------------------------------------
+\subsection{Memory Consumption}
+\label{subsec:res_mem}
+% ------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Mean peak auxiliary memory per image.}
+\label{tab:res_mem}
+\begin{tabular}{lrr}
+\hline
+\textbf{Method} & \textbf{Naive (KB)} & \textbf{Optimised (KB)} \\
+\hline
+BC  & $0.4$       & $5{,}376.6$ \\
+GB  & $0.3$       & $5{,}376.6$ \\
+DBC & $0.4$       & $413{,}954.6$ \\
+BM  & $1.4$       & $1.3$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:res_mem} highlights memory as a first-class design consideration. While naive formulations maintain $\mathcal{O}(1)$ or minimal $\Theta(N)$ auxiliary space (operating effectively in-place), optimizations impose significant memory-performance trade-offs.
+
+The BC and GB optimized variants require $\approx 5.25$~MB to store the shared integral image, a negligible overhead for modern desktop systems. However, the DBC optimized formulation introduces an exceptionally severe $\approx 404$~MB memory footprint to maintain the 2D sparse tables. While theoretically constrained to $\Theta(N \log N)$, the absolute magnitude of this requirement has profound practical implications. Allocating nearly half a gigabyte of auxiliary memory for a single $896 \times 768$ image poses strict deployment limitations for embedded diagnostic systems, parallelized high-throughput clinical cloud environments, or application to gigapixel Whole-Slide Images (WSIs). In such environments, practitioners may be forced to revert to the slower naive DBC implementation to satisfy memory constraints.
+
+The BM approach proves highly advantageous in this regard, operating efficiently with minimal $\Theta(N)$ auxiliary arrays ($\approx 1.3$~KB peak overhead), making it the most memory-efficient grayscale algorithm evaluated.
+
+% ------------------------------------------------------------
+\subsection{Effectiveness: Fractal Dimension and Discriminatory Power}
+\label{subsec:res_effectiveness}
+% ------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Mean fractal dimension $\bar{D}$ per class, inter-class separation $\Delta D$, mean $R^{2}$, and Welch $t$-test result ($\alpha = 0.05$). Naive and optimized formulations produced identical $D$ values.}
+\label{tab:res_effectiveness}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccccc}
+\hline
+\textbf{Method} & $\bar{D}_{\text{ben}}$ & $\bar{D}_{\text{mal}}$ & $\Delta D$ & $\bar{R}^{2}$ & $p$-value & \textbf{Sig.} \\
+\hline
+BC  & $1.877 \pm 0.052$ & $1.790 \pm 0.086$ & $-0.087$ & $0.999$ & $0.0001$ & \checkmark \\
+GB  & $-1.995 \pm 0.005$ & $-1.992 \pm 0.009$ & $+0.003$ & $1.000$ & $0.149$  & $\times$ \\
+DBC & $2.112 \pm 0.038$ & $2.135 \pm 0.036$ & $+0.024$ & $0.992$ & $0.020$  & \checkmark \\
+BM  & $0.535 \pm 0.087$ & $0.609 \pm 0.070$ & $+0.074$ & $0.987$ & $0.001$  & \checkmark \\
+\hline
+\end{tabular}
+}
+\end{table}
+
+Table~\ref{tab:res_effectiveness} reports the statistical separation capabilities of the estimators. Under the evaluated dataset and experimental conditions, BC and BM exhibit the most robust discriminatory power. BC yields the largest absolute separation ($|\Delta D| = 0.087$, $p = 0.0001$). Malignant tissues manifest lower fractal dimensions in the binary domain, reflecting highly fragmented, less space-filling structural patterns compared to the well-organized glandular formations of benign tissues. Similarly, BM accurately captures the heightened structural irregularity of the malignant grayscale intensity surface, yielding strongly significant separation ($p = 0.001$). 
+
+Conversely, the GB method fails to discriminate classes using the fractal dimension ($p = 0.149$). Many readers may interpret the negative $\bar{D}$ values ($\approx -1.99$) as computational errors; however, these strictly result from the adopted formulation and regression convention. Because GB fits the log-log regression to the \textit{mean box mass} $\mu(L)$—which scales proportionally to $L^2$ in uniform regions—rather than a traditional covering count, the slope converges to $+2$. Consequently, the fractal dimension defined as $-\text{slope}$ converges to $-2$. The failure of GB to discriminate via $D$ demonstrates that mean box mass carries limited structural signal. Instead, its discriminatory utility relies entirely on lacunarity, which exhibited strong inter-class separation ($\bar{\Lambda}_{\text{ben}} = 0.421$ vs $\bar{\Lambda}_{\text{mal}} = 0.832$). This confirms that the spatial heterogeneity (clustering) of the tumor cells, rather than their mean mass, drives histological classification.
+
+Finally, while BC provides strong statistical separation, a robustness analysis revealed a mean $D$ shift of $0.085$ when perturbing the Otsu threshold by $\pm 10\%$. Because this variation is essentially equivalent to the inter-class separation ($|\Delta D| = 0.087$), improper pre-processing can entirely neutralize the discriminatory signal, highlighting a severe vulnerability of binary algorithms.
+
+% ------------------------------------------------------------
+\subsection{Trade-off Synthesis}
+\label{subsec:tradeoffs}
+% ------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Consolidated trade-off summary across all optimized formulations. $\checkmark$ = best in class; $\sim$ = acceptable; $\times$ = weakest.}
+\label{tab:tradeoffs}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\hline
+\textbf{Criterion} & \textbf{BC} & \textbf{GB} & \textbf{DBC} & \textbf{BM} \\
+\hline
+Execution time      & $\checkmark$ & $\checkmark$ & $\sim$ & $\sim$ \\
+Auxiliary memory    & $\sim$       & $\sim$       & $\times$ & $\checkmark$ \\
+$R^{2}$ quality     & $\checkmark$ & $\checkmark$ & $\sim$ & $\sim$ \\
+Discriminatory power ($|\Delta D|$) & $\checkmark$ & $\times$ & $\sim$ & $\checkmark$ \\
+Threshold robustness & $\times$   & $\times$     & $\checkmark$ & $\checkmark$ \\
+\hline
+\end{tabular}
+}
+\end{table}
+
+Table~\ref{tab:tradeoffs} synthesizes the fundamental trade-offs guiding algorithm selection. The binary-versus-grayscale dichotomy is paramount: binary methods (BC, GB) execute rapidly but suffer from extreme threshold sensitivity, potentially destroying their discriminatory validity if staining protocols vary. Grayscale methods (DBC, BM) bypass binarization, guaranteeing superior reproducibility across clinical cohorts at the expense of higher computational complexity and memory utilization. 
+
+Practically, if strict image standardization is guaranteed and speed is critical, the naive BC is highly recommended. If threshold robustness is required and memory resources are constrained, BM provides strong, statistically significant discrimination without the crippling memory overhead of DBC. The optimized GB should be strictly reserved for pipelines requiring lacunarity evaluation.

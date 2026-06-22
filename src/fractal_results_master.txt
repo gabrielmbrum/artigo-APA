@@ -1,0 +1,9 @@
+
+BC_naive  : empirical slope = 1.057  (R² = 1.000)
+BC_opt    : empirical slope = 1.020  (R² = 1.000)
+GB_naive  : empirical slope = 1.119  (R² = 0.999)
+GB_opt    : empirical slope = 1.180  (R² = 0.993)
+DBC_naive : empirical slope = 1.043  (R² = 1.000)
+DBC_opt   : empirical slope = 1.179  (R² = 0.998)
+BM_naive  : empirical slope = 1.239  (R² = 0.976)
+BM_opt    : empirical slope = 1.073  (R² = 0.984)

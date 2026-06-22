@@ -1,3 +1,21 @@
+% ============================================================
+%  SECTION 7 — CONCLUSION
+% ============================================================
 \section{Conclusion}
+\label{sec:conclusion}
 
-Retomada da proposta, resultados e possíveis melhorias/trabalhos futuros.
+This study demonstrates a fundamental reality of algorithm engineering in medical image analysis: asymptotic complexity alone is insufficient to predict practical performance. While structural optimizations—integral images, sparse tables, and separable monotonic deques—successfully reduced theoretical time bounds, their real-world deployment exposed critical bottlenecks dictated by memory hierarchy, cache utilization, and data-dependent early-exit conditions.
+
+The empirical evidence underscores severe time-memory trade-offs across the evaluated estimators. Optimizing the Gliding Box (GB) method proved indispensable, yielding a 59.3$\times$ speedup that transformed a computationally intractable formulation into a clinically deployable solution. Similarly, the Differential Box-Counting (DBC) method achieved an 8.6$\times$ acceleration, but introduced a massive $\approx$404 MB memory penalty that limits its applicability in constrained environments. In stark contrast, the structurally optimized Classical Box-Counting (BC) method was paradoxically slower ($0.75\times$) than its naive counterpart, demonstrating that the overhead of large auxiliary data structures can easily eclipse theoretical gains when cache misses and the loss of early-exit conditions dominate execution. The Blanket Method (BM) maintained an exceptionally low memory footprint but yielded only a marginal $1.3\times$ speedup under standard morphological configurations.
+
+Beyond computational efficiency, the findings highlight a critical dichotomy between binary and grayscale methods regarding discriminatory effectiveness. BC and BM provided the strongest statistical separation between benign and malignant histological tissues ($p < 0.01$). However, binary algorithms (BC, GB) exhibited severe vulnerability to pre-processing artifacts; a mere $\pm10\%$ perturbation in the binarization threshold was sufficient to completely neutralize the diagnostic signal of BC. Grayscale methods (DBC, BM) bypass this vulnerability entirely, trading higher computational demand for structural robustness. Furthermore, the analysis revealed that GB cannot reliably discriminate tissues using the fractal dimension; its diagnostic utility relies exclusively on lacunarity, capturing spatial heterogeneity rather than mean structural density.
+
+Based on these consolidated findings, we provide the following practical recommendations for algorithm selection in medical image pipelines:
+\begin{itemize}
+    \item \textbf{Classical Box-Counting (BC):} Recommended strictly when rapid execution is critical and image binarization protocols are perfectly standardized to prevent threshold-induced signal degradation. The naive formulation is preferred for standard-resolution images to maximize cache efficiency.
+    \item \textbf{Blanket Method (BM):} The optimal choice when threshold robustness and strong discriminatory power are required under strict memory constraints.
+    \item \textbf{Differential Box-Counting (DBC):} A robust grayscale alternative that avoids binarization artifacts, provided the deployment environment can comfortably accommodate massive $\Theta(N \log N)$ memory allocations.
+    \item \textbf{Gliding Box (GB):} Should be explicitly reserved for analytical pipelines that require the quantification of spatial clustering and heterogeneity via lacunarity, as its fractal dimension estimate lacks discriminatory power.
+\end{itemize}
+
+Ultimately, the design of future medical image analysis pipelines must treat hardware constraints—particularly peak memory allocation and cache behavior—as primary design variables alongside diagnostic power. Future investigations should evaluate these implementations across higher-resolution modalities (e.g., gigapixel Whole-Slide Images) and parallelized architectures (GPU/SIMD) to further stress-test the time-memory-accuracy boundaries established in this work.

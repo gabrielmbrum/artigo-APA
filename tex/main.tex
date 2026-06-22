@@ -36,6 +36,11 @@
 \renewcommand{\bottomfraction}{0.8}
 \renewcommand{\textfraction}{0.1}
 
+\addto\captionsportuguese{
+  \renewcommand{\tablename}{Table}
+}
+\setlength{\belowcaptionskip}{4pt} 
+
 \title{Evaluation of Algorithms for Fractal Dimension Estimation in Medical Images: Complexity and Performance Analysis}
 
 \author{
@@ -53,21 +58,19 @@ Gabriel Martins Brum%\textsuperscript{1*}, Nome2\textsuperscript{2}, Nome3\texts
 
 \begin{@twocolumnfalse}
 \begin{abstract}
-\noindent Resumo do artigo em portugês
+\noindent Este estudo avalia quatro algoritmos de estimação de dimensão fractal — Box-Counting Clássico (BC), Gliding Box (GB), Differential Box-Counting (DBC) e Blanket Method (BM) — sob a perspectiva da engenharia algorítmica aplicada a imagens médicas. Limites assintóticos formais de tempo e espaço auxiliar são derivados para formulações ingênuas e otimizadas, com validação empírica em um conjunto de dados histológicos de câncer de mama. Fundamentalmente, os resultados demonstram que melhorias assintóticas teóricas nem sempre se traduzem em ganhos práticos de tempo de execução. Embora otimizações estruturais tenham proporcionado acelerações substanciais para o GB (imagens integrais) e DBC (tabelas esparsas), elas introduziram severas sobrecargas de memória ou foram neutralizadas por ineficiências de cache e condições de parada antecipada, como observado no desempenho paradoxalmente inferior do BC otimizado. A análise de efetividade revela que, enquanto BC e BM fornecem forte separação estatística entre tecidos benignos e malignos ($p < 0.01$), o poder discriminatório do GB reside na lacunaridade em vez da dimensão fractal. Por fim, este trabalho expõe o trade-off crítico entre a eficiência computacional de métodos binários, inerentemente sensíveis a limiares, e a robustez dos métodos em tons de cinza. Esses achados fornecem um arcabouço rigoroso para a seleção de algoritmos em pipelines clínicos, enfatizando que a hierarquia de memória e restrições de implementação são componentes tão críticos para o desempenho em mundo real quanto a complexidade assintótica.
 
 \vspace{0.3em}
-\noindent \textbf{Palavras-chave:} Palavras chave em português
+\noindent \textbf{Palavras-chave:} Dimensão fractal; Box-counting; Complexidade algorítmica; Imagens médicas; Classificação histológica.
 \end{abstract}
 
+\renewcommand{\abstractname}{Abstract}
 \begin{abstract}
-\noindent \textbf{Abstract}
-
-\noindent Resumo do artigo em inglês
+\noindent This study evaluates four fractal dimension estimation algorithms—Classical Box-Counting (BC), Gliding Box (GB), Differential Box-Counting (DBC), and the Blanket Method (BM)—from an algorithmic engineering perspective applied to medical imaging. Formal asymptotic bounds for time and auxiliary space are derived across naive and structurally optimized formulations, with empirical validation on a breast cancer histology dataset. Crucially, our findings demonstrate that theoretical asymptotic improvements do not strictly translate into practical runtime gains. While structural optimizations yielded substantial speedups for GB (integral images) and DBC (sparse tables), they introduced severe memory overheads or were counteracted by cache inefficiencies and early-exit conditions, as observed in the paradoxically slower optimized BC. Effectiveness analysis reveals that while BC and BM provide strong statistical separation between benign and malignant tissues ($p < 0.01$), GB's discriminatory power relies on lacunarity rather than fractal dimension. Ultimately, this work exposes a fundamental trade-off between the computational efficiency of threshold-sensitive binary methods and the robust, albeit resource-intensive, nature of grayscale methods. These insights provide a rigorous framework for algorithm selection in clinical pipelines, emphasizing that memory hierarchy and dataset-specific implementation constraints are as critical to real-world performance as asymptotic complexity.
 
 \vspace{0.3em}
-\noindent \textbf{Keywords:} Palavras chave em inglês
+\noindent \textbf{Keywords:} Fractal dimension; Box-counting; Algorithmic complexity; Medical imaging; Histological classification.
 \end{abstract}
-
 
 \end{@twocolumnfalse}
 
